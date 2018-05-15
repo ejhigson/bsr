@@ -22,23 +22,22 @@ hyperparameter values. These objects can be used in the same way as functions
 due to python's "duck typing" (alternatively you can define likelihoods
 using functions).
 """
-import inspect
 import numpy as np
 import scipy.special
+import bsr.basis_functions
 
 
 class BasisFuncSum(object):
 
     """Loglikelihood for fitting a sum of basis functions to the data."""
 
-    def __init__(self, data, func, nfunc_max, **kwargs):
+    def __init__(self, data, func, nfunc, **kwargs):
         """
         Set up likelihood object's hyperparameter values.
 
         Parameters
         ----------
         """
-        self.nfunc_min = kwargs.pop('nfunc_min', 1)
         self.adaptive = kwargs.pop('adaptive', False)
         self.global_bias = kwargs.pop('global_bias', False)
         if kwargs:
@@ -47,8 +46,13 @@ class BasisFuncSum(object):
         assert data['x_error_sigma'] is None or data['x2'] is None, (
             'Not yet set up to deal with x errors in 2d')
         self.func = func
-        self.nfunc_max = nfunc_max
-        self.nargs = len(inspect.signature(func).parameters)
+        self.nfunc = nfunc
+        self.nargs = len(bsr.basis_functions.get_func_params(func))
+        self.ndim = self.nfunc * self.nargs
+        if self.adaptive:
+            self.ndim += 1
+        if self.global_bias:
+            self.ndim += 1
 
     @staticmethod
     def log_gaussian_given_r(r, sigma, n_dim=1):
@@ -74,10 +78,10 @@ class BasisFuncSum(object):
         """
         # Deal with adaptive nfunc specification
         if self.adaptive:
-            sum_max = int(args_arr_in[0])
+            sum_max = int(np.round(args_arr_in[0]))
             args_arr = args_arr_in[1:]
         else:
-            sum_max = self.nfunc_max
+            sum_max = self.nfunc
             args_arr = args_arr_in
         # Deal with global bias
         if self.global_bias:
@@ -85,17 +89,13 @@ class BasisFuncSum(object):
             args_arr = args_arr[:-1]
         else:
             y = 0.0
-        # check there are the expected number of params
-        assert args_arr.shape[0] == self.nargs * self.nfunc_max, (
-            '{0} != {1} * {2}'.format(args_arr.shape[0], self.nargs,
-                                      self.nfunc_max))
         # Sum basis functions
         if x2 is None:
             for i in range(sum_max):
-                y += self.func(x1, *args_arr[i::self.nfunc_max])
+                y += self.func(x1, *args_arr[i::self.nfunc])
         else:
             for i in range(sum_max):
-                y += self.func(x1, x2, *args_arr[i::self.nfunc_max])
+                y += self.func(x1, x2, *args_arr[i::self.nfunc])
         return y
 
     def __call__(self, theta):
@@ -113,6 +113,10 @@ class BasisFuncSum(object):
         phi: list of length nderived
             Any derived parameters.
         """
+        # check there are the expected number of params
+        assert theta.shape[0] == self.ndim, (
+            'theta.shape[0]={0} != self.ndim={1}'.format(
+                theta.shape[0], self.ndim))
         if self.data['x_error_sigma'] is None:
             # No x errors so no need to integrate
             ytheta = self.sum_basis_funcs(

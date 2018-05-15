@@ -27,6 +27,48 @@ functions).
 """
 import numpy as np
 import scipy
+import bsr.basis_functions
+
+
+def get_default_prior(func, nfunc, adaptive=False, global_bias=False,
+                      nfuncs_min=1):
+    """Construct a default set of priors for the basis function."""
+    assert func.__name__ in ['gg_1d', 'gg_2d', 'nn_1d', 'nn_2d'], (
+        'not yet set up for {}'.format(func.__name__))
+    # specify default priors
+    if func.__name__ in ['gg_1d', 'gg_2d']:
+        priors_dict = {'a':     SortedUniform(0, 1.0),
+                       'mu':    Uniform(0, 1.0),
+                       'sigma': Uniform(0.01, 1.0),
+                       'beta':  Uniform(0.1, 10.0)}
+        if adaptive:
+            priors_dict['a'] = AdaptiveSortedUniform(
+                0, 1.0, nfuncs_min=nfuncs_min)
+        assert not global_bias
+        if func.__name__ == 'gg_2d':
+            for param in ['mu', 'sigma', 'beta']:
+                priors_dict[param + '1'] = priors_dict[param]
+                priors_dict[param + '2'] = priors_dict[param]
+            priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
+    elif func.__name__ in ['nn_1d', 'nn_2d']:
+        priors_dict = {'a':           SortedUniform(0, 250),
+                       'w_0':         Uniform(-25, 25),
+                       'w_1':         Uniform(-25, 25),
+                       'w_2':         Uniform(-25, 25),
+                       'global_bias': Uniform(-50, 50)}
+        if adaptive:
+            priors_dict['a'] = AdaptiveSortedUniform(
+                0, 250, nfuncs_min=nfuncs_min)
+    # Get a list of the priors we want
+    args = bsr.basis_functions.get_func_params(func)
+    prior_blocks = [priors_dict[arg] for arg in args]
+    block_sizes = [nfunc] * len(args)
+    if adaptive:
+        block_sizes[0] += 1
+    if global_bias:
+        prior_blocks.append(priors_dict['global_bias'])
+        block_sizes.append(1)
+    return BlockPrior(prior_blocks, block_sizes)
 
 
 class Gaussian(object):
@@ -183,10 +225,10 @@ class BlockPrior(object):
     """Prior object which applies a list of priors to different blocks within
     the parameters."""
 
-    def __init__(self, priors, block_sizes):
+    def __init__(self, prior_blocks, block_sizes):
         """Store prior and size of each block."""
-        assert len(priors) == len(block_sizes)
-        self.priors = priors
+        assert len(prior_blocks) == len(block_sizes)
+        self.prior_blocks = prior_blocks
         self.block_sizes = block_sizes
 
     def __call__(self, cube):
@@ -207,7 +249,8 @@ class BlockPrior(object):
         theta = np.zeros(cube.shape)
         start = 0
         end = 0
-        for i, prior in enumerate(self.priors):
+        for i, prior in enumerate(self.prior_blocks):
             end += self.block_sizes[i]
             theta[start:end] = prior(cube[start:end])
             start += self.block_sizes[i]
+        return theta

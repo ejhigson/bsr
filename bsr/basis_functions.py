@@ -1,8 +1,21 @@
 #!/usr/bin/env python
 """Basis functions for fitting."""
 
+import inspect
 import numpy as np
 import scipy.special
+
+
+def get_func_params(func):
+    """Get a list of the parameters of the function (excluding x
+    inputs)."""
+    params = list(inspect.signature(func).parameters)
+    for par in ['x', 'x1', 'x2']:
+        try:
+            params.remove(par)
+        except ValueError:
+            pass
+    return params
 
 
 def gg_1d(x, a, mu, sigma, beta):
@@ -11,7 +24,7 @@ def gg_1d(x, a, mu, sigma, beta):
     return const * np.exp((-1.0) * (np.absolute(x - mu) / sigma) ** beta)
 
 
-def gg_2d(self, x1, x2, a, mu1, mu2, sigma1, sigma2, beta1, beta2, omega):
+def gg_2d(x1, x2, a, mu1, mu2, sigma1, sigma2, beta1, beta2, omega):
     """2d generalised gaussian"""
     # Rotate gen gaussian around the mean
     assert omega < 0.25 * np.pi and omega > -0.25 * np.pi, \
@@ -21,8 +34,8 @@ def gg_2d(self, x1, x2, a, mu1, mu2, sigma1, sigma2, beta1, beta2, omega):
     x1_new = np.cos(omega) * x1_new - np.sin(omega) * x2_new
     x2_new = np.sin(omega) * x1_new + np.cos(omega) * x2_new
     # NB we do not include means as x1_new and x2_new are relative to means
-    return (a * self.GG1d(x1_new, 1.0, 0, sigma1, beta1)
-            * self.GG1d(x2_new, 1.0, 0, sigma2, beta2))
+    return (a * gg_1d(x1_new, 1.0, 0, sigma1, beta1)
+            * gg_1d(x2_new, 1.0, 0, sigma2, beta2))
 
 
 def nn_1d(x, a, w_0, w_1):

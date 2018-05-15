@@ -1,3 +1,21 @@
+# Swap files
+*.sw*
+
+# dyPolyChord output files
+*.txt
+*.pkl
+*.resume
+*.stats
+
+# Plots
+*.pdf
+
+# demo output
+chains
+
+# Github default python .gitignore
+# --------------------------------
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
