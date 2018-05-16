@@ -3,6 +3,70 @@
 import numpy as np
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
+import fgivenx
+import fgivenx.plot
+
+
+def fgivenx_plot(func, x, thetas, ax, **kwargs):
+    """
+    Adds fgivenx plot to ax.
+
+    Parameters
+    ----------
+    func: function or list of functions
+        Model is y = func(x, theta)
+    x: 1d numpy array
+        Support
+    ax: matplotlib axis object
+    logzs: list of flots or None, optional
+        For multimodal analysis, use a list of functions, thetas, weights
+        and logZs. fgivenx checks each has the same length and weights samples
+        from each model accordingly - see its docs for more details.
+    weights: 1d numpy array or None
+        Relative weights of each row of theta (if not evenly weighted).
+    colormap: matplotlib colormap, optional
+        Colors to plot fgivenx distribution.
+    y: 1d numpy array, optional
+        Specify actual y grid to use. If None, a grid is calculated based on
+        the max and min y values and ny.
+    ny: int, optional
+        Size of y-axis grid for fgivenx plots. Not used if y is not None.
+    cache: str or None
+        Root for fgivenx caching (no caching if None).
+    parallel: bool, optional
+        fgivenx parallel option.
+    rasterize_contours: bool, optional
+        fgivenx rasterize_contours option.
+    smooth: bool, optional
+        fgivenx smooth option.
+    tqdm_kwargs: dict, optional
+        Keyword arguments to pass to the tqdm progress bar when it is used in
+        fgivenx while plotting contours.
+
+    Returns
+    -------
+    cbar: matplotlib colorbar
+        For use in higher order functions.
+    """
+    logzs = kwargs.pop('logzs', None)
+    weights = kwargs.pop('weights', None)
+    colormap = kwargs.pop('colormap', plt.get_cmap('Reds_r'))
+    y = kwargs.pop('y', None)
+    ny = kwargs.pop('ny', x.shape[0])
+    cache = kwargs.pop('cache', None)
+    parallel = kwargs.pop('parallel', True)
+    rasterize_contours = kwargs.pop('rasterize_contours', False)
+    smooth = kwargs.pop('smooth', False)
+    tqdm_kwargs = kwargs.pop('tqdm_kwargs', {'leave': False})
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    y, pmf = fgivenx.compute_pmf(
+        func, x, thetas, logZ=logzs, weights=weights, parallel=parallel,
+        ntrim=None, ny=ny, y=y, cache=cache, tqdm_kwargs=tqdm_kwargs)
+    cbar = fgivenx.plot.plot(
+        x, y, pmf, ax, colors=colormap, smooth=smooth,
+        rasterize_contours=rasterize_contours)
+    return cbar
 
 
 def plot_colormap(y_list, x1, x2, **kwargs):

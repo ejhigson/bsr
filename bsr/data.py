@@ -6,9 +6,9 @@ import numpy as np
 from PIL import Image
 
 
-def generate_data(data_func, data_type, y_error_sigma, **kwargs):
+def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
+                  **kwargs):
     """Get data dictionary."""
-    x_error_sigma = kwargs.pop('x_error_sigma', None)
     npoints = kwargs.pop('npoints', 32)
     x1min = kwargs.pop('x1min', 0.0)
     x1max = kwargs.pop('x1max', 1.0)
@@ -36,6 +36,7 @@ def generate_data(data_func, data_type, y_error_sigma, **kwargs):
                                            x1max=x1max, x2max=x2max)
         data['x2min'] = x2min
         data['x2max'] = x2max
+        assert x_error_sigma is None
         data['x_error_sigma'] = None  # always None in 2d
     if data['func_name'] == 'get_image':
         data['y'], _, _ = get_image(data_type, npoints)
@@ -53,16 +54,18 @@ def generate_data(data_func, data_type, y_error_sigma, **kwargs):
                 data['y'] += data_func(data['x1'], data['x2'],
                                        *data_func_args[i::data_type])
     data['y_error_sigma'] = y_error_sigma
-    # fix the random seed
     data['random_seed'] = seed
+    # Add Noise
+    # ---------
+    state = np.random.get_state()  # Save random state before seeding
     np.random.seed(data['random_seed'])
-    # add noise
     data['y_no_noise'] = copy.deepcopy(data['y'])
     data['y'] += data['y_error_sigma'] * np.random.normal(size=data['y'].shape)
     if data['x_error_sigma'] is not None:
         data['x1_no_noise'] = copy.deepcopy(data['x1'])
         data['x1'] += (data['x_error_sigma'] *
                        np.random.normal(size=data['x1'].shape))
+    np.random.set_state(state)  # Reset random state
     return data
 
 

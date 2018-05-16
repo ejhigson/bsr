@@ -17,8 +17,8 @@ def main():
     to)."""
     # Set up problem
     # --------------
-    data = bsr.data.generate_data(bf.gg_2d, 1, 0.05)
-    fit_func = bf.gg_2d
+    data = bsr.data.generate_data(bf.gg_1d, 1, 0.05, x_error_sigma=0.05)
+    fit_func = bf.gg_1d
     nfunc = 1
     adaptive = False
     global_bias = False

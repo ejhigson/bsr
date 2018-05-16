@@ -143,6 +143,10 @@ class BasisFuncFit(object):
                 y += self.basis_func(x1, x2, *args_arr[i::self.nfunc])
         return y
 
+    def fit_fgivenx(self, x1, theta):
+        """Wrapper for correct arg order for fgivenx."""
+        return self.fit(theta, x1)
+
     def fit_mean(self, theta, x1, x2=None, **kwargs):
         """Get the mean fit for each row of a 2d array of thetas. Optionally
         you can also get the weighted mean."""
