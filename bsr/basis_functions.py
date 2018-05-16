@@ -6,16 +6,56 @@ import numpy as np
 import scipy.special
 
 
-def get_func_params(func):
-    """Get a list of the parameters of the function (excluding x
-    inputs)."""
-    params = list(inspect.signature(func).parameters)
+def get_param_names(basis_func):
+    """Get a list of the parameters of the bais function (excluding x
+    inputs).
+
+    Parameters
+    ----------
+    basis_func: function
+
+    Returns
+    -------
+    param_names: list of strs
+    """
+    param_names = list(inspect.signature(basis_func).parameters)
     for par in ['x', 'x1', 'x2']:
         try:
-            params.remove(par)
+            param_names.remove(par)
         except ValueError:
             pass
-    return params
+    return param_names
+
+
+def get_param_latex_names(basis_func):
+    """Get a list of the parameters of LaTeX names for the params.
+
+    Parameters
+    ----------
+    basis_func: function
+
+    Returns
+    -------
+    param_names: list of strs
+    """
+    latex_map = {'mu': r'\mu',
+                 'mu1': r'\mu_{1}',
+                 'mu2': r'\mu_{2}',
+                 'sigma': r'\sigma',
+                 'sigma1': r'\sigma_{1}',
+                 'sigma2': r'\sigma_{2}',
+                 'beta': r'\beta',
+                 'beta1': r'\beta_{1}',
+                 'beta2': r'\beta_{2}',
+                 'omega': r'\Omega'}
+    param_names = get_param_names(basis_func)
+    latex_names = []
+    for param in param_names:
+        try:
+            latex_names.append(latex_map[param])
+        except KeyError:
+            latex_names.append(param)
+    return ['${}$'.format(name) for name in latex_names]
 
 
 def gg_1d(x, a, mu, sigma, beta):

@@ -9,7 +9,7 @@ import dyPolyChord
 import bsr.likelihoods
 import bsr.priors
 import bsr.basis_functions as bf
-import bsr.get_data
+import bsr.data
 
 
 def main():
@@ -17,7 +17,7 @@ def main():
     to)."""
     # Set up problem
     # --------------
-    data = bsr.get_data.generate_data(bf.gg_1d, 1, 0.05)
+    data = bsr.data.generate_data(bf.gg_1d, 1, 0.05)
     fit_func = bf.gg_1d
     nfunc = 1
     adaptive = False

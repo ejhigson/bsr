@@ -14,6 +14,7 @@ def generate_data(data_func, data_type, y_error_sigma, **kwargs):
     x1max = kwargs.pop('x1max', 1.0)
     x2min = kwargs.pop('x2min', 0.0)
     x2max = kwargs.pop('x2max', 1.0)
+    seed = kwargs.pop('seed', 0)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     data = {}
@@ -53,7 +54,7 @@ def generate_data(data_func, data_type, y_error_sigma, **kwargs):
                                        *data_func_args[i::data_type])
     data['y_error_sigma'] = y_error_sigma
     # fix the random seed
-    data['random_seed'] = 0
+    data['random_seed'] = seed
     np.random.seed(data['random_seed'])
     # add noise
     data['y_no_noise'] = copy.deepcopy(data['y'])
