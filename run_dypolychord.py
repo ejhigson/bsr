@@ -65,15 +65,9 @@ def main():
         'boost_posterior': 0.0}
     for dynamic_goal in dg_list:
         # make list of settings dictionaries for the different repeats
-        # file_root = dyPolyChord.output_processing.settings_root(
-        #     'gaussian_mix_4comp_4sep',
-        #     'gaussian', ndim,
-        #     prior_scale=prior_scale,
-        #     dynamic_goal=dynamic_goal,
-        #     ninit=ninit, init_step=init_step,
-        #     nrepeats=num_repeats,
-        #     nlive_const=nlive_const).replace('.', '_')
-        file_root = 'test'
+        file_root = likelihood.get_file_root(
+            settings_dict['nlive'], settings_dict['num_repeats'],
+            dynamic_goal=dynamic_goal)
         settings_list = []
         for extra_root in range(start_ind + 1, end_ind + 1):
             settings = copy.deepcopy(settings_dict)

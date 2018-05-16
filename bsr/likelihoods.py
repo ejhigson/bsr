@@ -31,12 +31,9 @@ class BasisFuncSum(object):
 
     """Loglikelihood for fitting a sum of basis functions to the data."""
 
-    def __init__(self, data, func, nfunc, **kwargs):
+    def __init__(self, data, basis_func, nfunc, **kwargs):
         """
         Set up likelihood object's hyperparameter values.
-
-        Parameters
-        ----------
         """
         self.adaptive = kwargs.pop('adaptive', False)
         self.global_bias = kwargs.pop('global_bias', False)
@@ -45,9 +42,9 @@ class BasisFuncSum(object):
         self.data = data
         assert data['x_error_sigma'] is None or data['x2'] is None, (
             'Not yet set up to deal with x errors in 2d')
-        self.func = func
+        self.basis_func = basis_func
         self.nfunc = nfunc
-        self.nargs = len(bsr.basis_functions.get_func_params(func))
+        self.nargs = len(bsr.basis_functions.get_func_params(basis_func))
         self.ndim = self.nfunc * self.nargs
         if self.adaptive:
             self.ndim += 1
@@ -72,6 +69,20 @@ class BasisFuncSum(object):
         expo += ((yj - Y) / self.data['y_error_sigma']) ** 2
         return np.exp(-0.5 * expo)
 
+    def get_file_root(self, nlive, num_repeats, dynamic_goal=None):
+        """Get a standard string for save names."""
+        if self.adaptive:
+            method = 'adaptive'
+        else:
+            method = 'vanilla'
+        root_name = self.data['data_name'] + '_' + method
+        root_name += '_' + self.basis_func.__name__
+        root_name += '_' + str(self.nfunc) + 'funcs'
+        root_name += '_' + str(nlive) + 'nlive'
+        root_name += '_' + str(num_repeats) + 'reps'
+        root_name += '_dg' + str(dynamic_goal)
+        return root_name.replace('.', '_')
+
     def sum_basis_funcs(self, x1, args_arr_in, x2=None):
         """
         Sums basis functions.
@@ -92,10 +103,10 @@ class BasisFuncSum(object):
         # Sum basis functions
         if x2 is None:
             for i in range(sum_max):
-                y += self.func(x1, *args_arr[i::self.nfunc])
+                y += self.basis_func(x1, *args_arr[i::self.nfunc])
         else:
             for i in range(sum_max):
-                y += self.func(x1, x2, *args_arr[i::self.nfunc])
+                y += self.basis_func(x1, x2, *args_arr[i::self.nfunc])
         return y
 
     def __call__(self, theta):
@@ -111,7 +122,8 @@ class BasisFuncSum(object):
         logl: float
             Loglikelihood
         phi: list of length nderived
-            Any derived parameters.
+            This likelihood does not use any derived parameters and therefore
+            just returns an empty list.
         """
         # check there are the expected number of params
         assert theta.shape[0] == self.ndim, (

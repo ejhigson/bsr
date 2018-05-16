@@ -6,9 +6,16 @@ import numpy as np
 from PIL import Image
 
 
-def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
-                  npoints=32, x1min=0, x1max=1, x2min=0, x2max=1):
+def generate_data(data_func, data_type, y_error_sigma, **kwargs):
     """Get data dictionary."""
+    x_error_sigma = kwargs.pop('x_error_sigma', None)
+    npoints = kwargs.pop('npoints', 32)
+    x1min = kwargs.pop('x1min', 0.0)
+    x1max = kwargs.pop('x1max', 1.0)
+    x2min = kwargs.pop('x2min', 0.0)
+    x2max = kwargs.pop('x2max', 1.0)
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     data = {}
     data['x1min'] = x1min
     data['x1max'] = x1max
@@ -16,8 +23,8 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
         data['func_name'] = data_func
     else:
         data['func_name'] = data_func.__name__
-    # data['data_name'] = utils.data_name(data_func, data_type, npoints,
-    #                                     y_error_sigma, x_error_sigma)
+    data['data_name'] = get_data_name(
+        data_func, data_type, npoints, y_error_sigma, x_error_sigma)
     if data['func_name'][-2:] == '1d':
         data['x1'] = (np.random.random(npoints) * (x1max - x1min)) + x1min
         data['x2'] = None
@@ -58,9 +65,15 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
     return data
 
 
-def make_grid(x1_points, x2_points=None, x1min=0.0, x2min=0.0, x1max=1.0,
-              x2max=1.0):
+def make_grid(x1_points, **kwargs):
     """Returns grid of x1 and x2 coordinates"""
+    x2_points = kwargs.pop('x2_points', x1_points)
+    x1min = kwargs.pop('x1min', 0.0)
+    x1max = kwargs.pop('x1max', 1.0)
+    x2min = kwargs.pop('x2min', 0.0)
+    x2max = kwargs.pop('x2max', 1.0)
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     if x2_points is None:
         x2_points = x1_points
     x1_setup = np.linspace(x1min, x1max, num=x1_points)
@@ -71,6 +84,7 @@ def make_grid(x1_points, x2_points=None, x1min=0.0, x2min=0.0, x1max=1.0,
 
 
 def get_image(filename, side_size, file_dir='images/'):
+    """Load image from file into array format."""
     image_filename = filename + '_' + str(side_size) + 'x' + str(side_size)
     # open image and resize it
     size = (side_size, side_size)
@@ -89,9 +103,26 @@ def get_image(filename, side_size, file_dir='images/'):
     return pixels, pixels_fullsize, image_filename
 
 
+def get_data_name(data_func, data_type, npoints, y_error_sigma, x_error_sigma):
+    """Standard string describing data for save names."""
+    if isinstance(data_func, str):
+        data_func_name = data_func
+    else:
+        data_func_name = data_func.__name__
+    if data_func_name == 'get_image':
+        data_name = data_type
+    else:
+        data_name = data_func_name + '_' + str(data_type) + 'funcs'
+    data_name += '_' + str(npoints) + 'pts_' + str(y_error_sigma) + 'ye'
+    if x_error_sigma is not None:
+        data_name += '_' + str(x_error_sigma) + 'xe'
+    return data_name.replace('.', '_')
+
+
 # Set up data
 # -----------
 def get_data_args(data_func, nfuncs):
+    """Returns default arguments for generating data."""
     assert data_func.__name__ in ['gg_1d', 'gg_2d'], (
         'no data args found! func={} nfuncs={}'.format(
             data_func.__name__, nfuncs))
