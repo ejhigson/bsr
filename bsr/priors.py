@@ -60,7 +60,7 @@ def get_default_prior(func, nfunc, adaptive=False, global_bias=False,
             priors_dict['a'] = AdaptiveSortedUniform(
                 0, 250, nfuncs_min=nfuncs_min)
     # Get a list of the priors we want
-    args = bsr.basis_functions.get_func_params(func)
+    args = bsr.basis_functions.get_param_names(func)
     prior_blocks = [priors_dict[arg] for arg in args]
     block_sizes = [nfunc] * len(args)
     if adaptive:

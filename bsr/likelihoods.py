@@ -27,7 +27,7 @@ import scipy.special
 import bsr.basis_functions
 
 
-class BasisFuncSum(object):
+class BasisFuncFit(object):
 
     """Loglikelihood for fitting a sum of basis functions to the data."""
 
@@ -76,7 +76,7 @@ class BasisFuncSum(object):
             assert param[-1] == '$'
             if param[-2] == '}':
                 for i in range(self.nfunc):
-                    param_names.append(param[:-2] + ',' + str(i + 1) + '}')
+                    param_names.append(param[:-2] + ',' + str(i + 1) + '}$')
             else:
                 for i in range(self.nfunc):
                     param_names.append('{0}_{1}$'.format(param[:-1], i + 1))
@@ -117,17 +117,17 @@ class BasisFuncSum(object):
         root_name += '_dg' + str(dynamic_goal)
         return root_name.replace('.', '_')
 
-    def sum_basis_funcs(self, x1, args_arr_in, x2=None):
+    def fit(self, theta, x1, x2=None):
         """
-        Sums basis functions.
+        Fit the data using the model and parameters theta.
         """
         # Deal with adaptive nfunc specification
         if self.adaptive:
-            sum_max = int(np.round(args_arr_in[0]))
-            args_arr = args_arr_in[1:]
+            sum_max = int(np.round(theta[0]))
+            args_arr = theta[1:]
         else:
             sum_max = self.nfunc
-            args_arr = args_arr_in
+            args_arr = theta
         # Deal with global bias
         if self.global_bias:
             y = args_arr[-1]
@@ -142,6 +142,22 @@ class BasisFuncSum(object):
             for i in range(sum_max):
                 y += self.basis_func(x1, x2, *args_arr[i::self.nfunc])
         return y
+
+    def fit_mean(self, theta, x1, x2=None, **kwargs):
+        """Get the mean fit for each row of a 2d array of thetas. Optionally
+        you can also get the weighted mean."""
+        logw = kwargs.pop('logw', None)
+        min_frac = kwargs.pop('min_frac', 10 ** -10)
+        assert theta.ndim == 2
+        if logw is not None:
+            w_rel = np.exp(logw - logw.max())
+            inds = np.where(w_rel >= min_frac)[0]
+            ys = np.apply_along_axis(self.fit, 1, theta[inds, :], x1, x2)
+            ys *= w_rel[inds][:, np.newaxis, np.newaxis]
+            return np.sum(ys, axis=0) / np.sum(w_rel)
+        else:
+            ys = np.apply_along_axis(self.fit, 1, theta, x1, x2)
+            return np.mean(ys, axis=0)
 
     def __call__(self, theta):
         """
@@ -160,13 +176,12 @@ class BasisFuncSum(object):
             just returns an empty list.
         """
         # check there are the expected number of params
-        assert theta.shape[0] == self.ndim, (
-            'theta.shape[0]={0} != self.ndim={1}'.format(
-                theta.shape[0], self.ndim))
+        assert theta.shape == (self.ndim,), (
+            'theta.shape={0} != (self.ndim,)=({1},)'.format(
+                theta.shape, self.ndim))
         if self.data['x_error_sigma'] is None:
             # No x errors so no need to integrate
-            ytheta = self.sum_basis_funcs(
-                self.data['x1'], theta, x2=self.data['x2'])
+            ytheta = self.fit(theta, self.data['x1'], self.data['x2'])
             logl = np.sum(self.log_gaussian_given_r(
                 abs(ytheta - self.data['y']), self.data['y_error_sigma']))
         else:
@@ -182,7 +197,7 @@ class BasisFuncSum(object):
             # 'nondeterministic likelihood' warning as likelihoods evaluate
             # inconsistently due to rounding errors on the integration
             X = np.linspace(self.data['x1min'], self.data['x1max'], 1000)
-            Y = self.sum_basis_funcs(X, theta)
+            Y = self.fit(theta, X)
             for ind, y_ind in np.ndenumerate(self.data['y']):
                 logl += np.log(scipy.integrate.simps(
                     self.integrand(X, Y, self.data['x1'][ind], y_ind), x=X))
