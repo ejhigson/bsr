@@ -25,6 +25,7 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
     data['random_seed'] = seed
     data['x1min'] = x1min
     data['x1max'] = x1max
+    data['func'] = data_func
     if isinstance(data_func, str):
         data['func_name'] = data_func
     else:

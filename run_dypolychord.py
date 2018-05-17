@@ -2,6 +2,7 @@
 """Generate results with dyPolyChord."""
 import copy
 import os
+from mpi4py import MPI  # initialise MPI
 import nestcheck.parallel_utils
 import dyPolyChord.output_processing
 import dyPolyChord.pypolychord_utils
@@ -17,42 +18,36 @@ def main():
     to)."""
     # Set up problem
     # --------------
-    data = bsr.data.generate_data(bf.gg_1d, 1, 0.05, x_error_sigma=0.05)
+    data = bsr.data.generate_data(bf.gg_1d, 1, 0.05, x_error_sigma=None)
     fit_func = bf.gg_1d
-    nfunc = 1
+    nfunc_list = list(range(2, 6))
     adaptive = False
     global_bias = False
-    likelihood = bsr.likelihoods.BasisFuncFit(
-        data, fit_func, nfunc, adaptive=adaptive, global_bias=global_bias)
-    prior = bsr.priors.get_default_prior(
-        fit_func, nfunc, adaptive=adaptive, global_bias=global_bias)
-    assert likelihood.ndim == sum(prior.block_sizes)
-    run_func = dyPolyChord.pypolychord_utils.RunPyPolyChord(
-        likelihood, prior, likelihood.ndim)
     # run settings
     start_ind = 0
-    end_ind = 1
+    end_ind = start_ind + 2
+    dynamic_goal = None
+    nlive_per_dim = 20
+    num_repeats_per_dim = 2
+    # concurret futures parallel
     parallel = False
     max_workers = 6
-    dg_list = [None]
-    nlive_const = 100
-    num_repeats = 5
     # dynamic settings - only used if dynamic_goal is not None
-    seed_increment = 1
-    ninit = 100
+    seed_increment = 100
+    ninit = 50
     clean = True
     init_step = ninit
+    comm = MPI.COMM_WORLD
+    # comm = None
     # PolyChord settings
     settings_dict = {
         'max_ndead': -1,
         'do_clustering': True,
         'posteriors': False,
         'equals': False,
-        'num_repeats': num_repeats,
         'base_dir': 'chains',
-        'feedback': 1,
+        'feedback': 0,
         'precision_criterion': 0.001,
-        'nlive': nlive_const,
         'nlives': {},
         'write_dead': True,
         'write_stats': True,
@@ -63,7 +58,16 @@ def main():
         'read_resume': False,
         'cluster_posteriors': False,
         'boost_posterior': 0.0}
-    for dynamic_goal in dg_list:
+    for nfunc in nfunc_list:
+        # Make likelihood, prior and run func
+        likelihood = bsr.likelihoods.BasisFuncFit(
+            data, fit_func, nfunc, adaptive=adaptive, global_bias=global_bias)
+        prior = bsr.priors.get_default_prior(
+            fit_func, nfunc, adaptive=adaptive, global_bias=global_bias)
+        assert likelihood.ndim == sum(prior.block_sizes)
+        # set nlive and num_repeats using ndim
+        settings_dict['nlive'] = nlive_per_dim * likelihood.ndim
+        settings_dict['num_repeats'] = num_repeats_per_dim * likelihood.ndim
         # make list of settings dictionaries for the different repeats
         file_root = likelihood.get_file_root(
             settings_dict['nlive'], settings_dict['num_repeats'],
@@ -71,7 +75,10 @@ def main():
         settings_list = []
         for extra_root in range(start_ind + 1, end_ind + 1):
             settings = copy.deepcopy(settings_dict)
-            settings['seed'] = extra_root * (10 ** 3)
+            if comm is None or comm.Get_size() == 1:
+                settings['seed'] = extra_root * (10 ** 3)
+            else:
+                settings['seed'] = -1
             settings['file_root'] = file_root + '_' + str(extra_root).zfill(3)
             settings_list.append(settings)
         # Before running in parallel make sure base_dir exists, as if multiple
@@ -80,6 +87,8 @@ def main():
             os.makedirs(settings_dict['base_dir'])
         # Do the nested sampling
         # ----------------------
+        run_func = dyPolyChord.pypolychord_utils.RunPyPolyChord(
+            likelihood, prior, likelihood.ndim)
         if dynamic_goal is None:
             # For standard nested sampling just run PolyChord
             nestcheck.parallel_utils.parallel_apply(
@@ -98,7 +107,8 @@ def main():
                              'init_step': init_step,
                              'seed_increment': seed_increment,
                              'clean': clean,
-                             'nlive_const': nlive_const},
+                             'nlive_const': settings_dict['nlive'],
+                             'comm': comm},
                 parallel=parallel,
                 tqdm_kwargs={'desc': 'dg=' + str(dynamic_goal),
                              'leave': True})
