@@ -20,12 +20,12 @@ def main():
     # --------------
     data = bsr.data.generate_data(bf.gg_1d, 1, 0.05, x_error_sigma=None)
     fit_func = bf.gg_1d
-    nfunc_list = list(range(2, 6))
-    adaptive = False
+    nfunc_list = [4]  # list(range(2, 6))
+    adaptive = True
     global_bias = False
     # run settings
     start_ind = 0
-    end_ind = start_ind + 2
+    end_ind = start_ind + 1
     dynamic_goal = None
     nlive_per_dim = 20
     num_repeats_per_dim = 2
@@ -46,7 +46,7 @@ def main():
         'posteriors': False,
         'equals': False,
         'base_dir': 'chains',
-        'feedback': 0,
+        'feedback': 1,
         'precision_criterion': 0.001,
         'nlives': {},
         'write_dead': True,

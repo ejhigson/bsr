@@ -38,6 +38,8 @@ def plot_1d(funcs, samples, weights, **kwargs):
         col = i % ncol
         row = i // ncol
         ax = plt.subplot(gs[row, col])
+        # If data is present we also want to plot the true function and the
+        # noisy data, and need to shift the other plots along
         if data is None:
             cbar = fgivenx_plot(
                 funcs[i], x, samples[i], ax, weights=weights[i],
@@ -55,7 +57,7 @@ def plot_1d(funcs, samples, weights, **kwargs):
             ax.errorbar(data['x1'], data['y'], yerr=data['y_error_sigma'],
                         xerr=data['x_error_sigma'], fmt='none',
                         ecolor='darkred')
-        if col == ncol - 1:
+        if col == 0:
             ax.set_ylabel('$y$')
             cbar_plot = plt.colorbar(cbar, cax=plt.subplot(gs[row, -1]),
                                      ticks=[1, 2, 3])
