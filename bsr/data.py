@@ -17,7 +17,12 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
     seed = kwargs.pop('seed', 0)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    if x_error_sigma == 0:
+        x_error_sigma = None
+    state = np.random.get_state()  # Save random state before seeding
+    np.random.seed(seed)
     data = {}
+    data['random_seed'] = seed
     data['x1min'] = x1min
     data['x1max'] = x1max
     if isinstance(data_func, str):
@@ -54,11 +59,8 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
                 data['y'] += data_func(data['x1'], data['x2'],
                                        *data_func_args[i::data_type])
     data['y_error_sigma'] = y_error_sigma
-    data['random_seed'] = seed
     # Add Noise
     # ---------
-    state = np.random.get_state()  # Save random state before seeding
-    np.random.seed(data['random_seed'])
     data['y_no_noise'] = copy.deepcopy(data['y'])
     data['y'] += data['y_error_sigma'] * np.random.normal(size=data['y'].shape)
     if data['x_error_sigma'] is not None:
