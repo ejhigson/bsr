@@ -18,10 +18,13 @@ def main():
     to)."""
     # Set up problem
     # --------------
-    data = bsr.data.generate_data(bf.gg_1d, 1, 0.1, x_error_sigma=None)
-    fit_func = bf.nn_1d
-    nfunc_list = [4]  # list(range(1, 5))
-    adaptive = True
+    data = bsr.data.generate_data(bf.gg_2d, 1, 0.1, x_error_sigma=None)
+    fit_func = bf.nn_2d
+    adaptive = False
+    if adaptive:
+        nfunc_list = [4]
+    else:
+        nfunc_list = list(range(1, 5))
     # run settings
     start_ind = 0
     end_ind = start_ind + 1

@@ -155,15 +155,17 @@ class BasisFuncFit(object):
     def fit_mean(self, theta, x1, x2=None, **kwargs):
         """Get the mean fit for each row of a 2d array of thetas. Optionally
         you can also get the weighted mean."""
-        logw = kwargs.pop('logw', None)
-        min_frac = kwargs.pop('min_frac', 10 ** -10)
+        w_rel = kwargs.pop('w_rel', None)
+        evens = kwargs.pop('evens', True)
         assert theta.ndim == 2
-        if logw is not None:
-            w_rel = np.exp(logw - logw.max())
-            inds = np.where(w_rel >= min_frac)[0]
+        if w_rel is not None:
+            if evens:
+                w_rel /= w_rel.max()
+                w_rel = (np.random.random(w_rel.shape) < w_rel).astype(int)
+            inds = np.nonzero(w_rel)[0]
             ys = np.apply_along_axis(self.fit, 1, theta[inds, :], x1, x2)
             ys *= w_rel[inds][:, np.newaxis, np.newaxis]
-            return np.sum(ys, axis=0) / np.sum(w_rel)
+            return np.sum(ys, axis=0) / np.sum(w_rel[inds])
         else:
             ys = np.apply_along_axis(self.fit, 1, theta, x1, x2)
             return np.mean(ys, axis=0)
