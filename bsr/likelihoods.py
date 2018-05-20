@@ -36,7 +36,10 @@ class BasisFuncFit(object):
         Set up likelihood object's hyperparameter values.
         """
         self.adaptive = kwargs.pop('adaptive', False)
-        self.global_bias = kwargs.pop('global_bias', False)
+        self.global_bias = kwargs.pop(  # default True if nn, False otherwise
+            'global_bias', basis_func.__name__[:2] == 'nn')
+        self.sigmoid = kwargs.pop(  # default True if nn, False otherwise
+            'sigmoid', basis_func.__name__[:2] == 'nn')
         if kwargs:
             raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
         self.data = data
@@ -141,6 +144,8 @@ class BasisFuncFit(object):
         else:
             for i in range(sum_max):
                 y += self.basis_func(x1, x2, *args_arr[i::self.nfunc])
+        if self.sigmoid:
+            y = 1. / (1. + np.exp(-y))
         return y
 
     def fit_fgivenx(self, x1, theta):

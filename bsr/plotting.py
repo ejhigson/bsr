@@ -8,6 +8,23 @@ import fgivenx
 import fgivenx.plot
 import nestcheck.estimators
 import nestcheck.ns_run_utils
+import bsr.priors
+
+
+def plot_prior(likelihood, nsamples):
+    prior = bsr.priors.get_default_prior(
+        likelihood.basis_func, likelihood.nfunc, likelihood.adaptive)
+    hypercube_samps = np.random.random((nsamples, likelihood.ndim))
+    thetas = np.apply_along_axis(prior, 1, hypercube_samps)
+    assert likelihood.basis_func.__name__[-2:] in ['1d', '2d']
+    if likelihood.basis_func.__name__[-2:] == '1d':
+        fig = plot_1d_grid(likelihood.fit_fgivenx, thetas, None)
+    elif likelihood.basis_func.__name__[-2:] == '2d':
+        y = likelihood.fit_mean(
+            thetas, likelihood.data['x1'], likelihood.data['x2'])
+        print('ymax={} ymean={}'.format(y.max(), np.mean(y)))
+        fig = plot_colormap(y, likelihood.data['x1'], likelihood.data['x2'])
+    return fig
 
 
 def plot_1d_runs(likelihood_list, run_list, combine=False, **kwargs):

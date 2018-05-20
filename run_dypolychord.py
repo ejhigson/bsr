@@ -18,11 +18,10 @@ def main():
     to)."""
     # Set up problem
     # --------------
-    data = bsr.data.generate_data(bf.gg_1d, 1, 0.05, x_error_sigma=None)
-    fit_func = bf.gg_1d
-    nfunc_list = [4]  # list(range(2, 6))
+    data = bsr.data.generate_data(bf.gg_1d, 1, 0.1, x_error_sigma=None)
+    fit_func = bf.nn_1d
+    nfunc_list = [4]  # list(range(1, 5))
     adaptive = True
-    global_bias = False
     # run settings
     start_ind = 0
     end_ind = start_ind + 1
@@ -61,9 +60,9 @@ def main():
     for nfunc in nfunc_list:
         # Make likelihood, prior and run func
         likelihood = bsr.likelihoods.BasisFuncFit(
-            data, fit_func, nfunc, adaptive=adaptive, global_bias=global_bias)
+            data, fit_func, nfunc, adaptive=adaptive)
         prior = bsr.priors.get_default_prior(
-            fit_func, nfunc, adaptive=adaptive, global_bias=global_bias)
+            fit_func, nfunc, adaptive=adaptive)
         assert likelihood.ndim == sum(prior.block_sizes)
         # set nlive and num_repeats using ndim
         settings_dict['nlive'] = nlive_per_dim * likelihood.ndim

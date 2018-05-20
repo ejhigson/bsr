@@ -30,11 +30,15 @@ import scipy
 import bsr.basis_functions
 
 
-def get_default_prior(func, nfunc, adaptive=False, global_bias=False,
-                      nfuncs_min=1):
+def get_default_prior(func, nfunc, adaptive=False, **kwargs):
     """Construct a default set of priors for the basis function."""
     assert func.__name__ in ['gg_1d', 'gg_2d', 'nn_1d', 'nn_2d'], (
         'not yet set up for {}'.format(func.__name__))
+    nfunc_min = kwargs.pop('nfunc_min', 1)
+    global_bias = kwargs.pop(  # default True if nn, False otherwise
+        'global_bias', func.__name__[:2] == 'nn')
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     # specify default priors
     if func.__name__ in ['gg_1d', 'gg_2d']:
         priors_dict = {'a':     SortedUniform(0, 1.0),
@@ -43,7 +47,7 @@ def get_default_prior(func, nfunc, adaptive=False, global_bias=False,
                        'beta':  Uniform(0.1, 10.0)}
         if adaptive:
             priors_dict['a'] = AdaptiveSortedUniform(
-                0, 1.0, nfuncs_min=nfuncs_min)
+                0, 1.0, nfunc_min=nfunc_min)
         assert not global_bias
         if func.__name__ == 'gg_2d':
             for param in ['mu', 'sigma', 'beta']:
@@ -58,7 +62,7 @@ def get_default_prior(func, nfunc, adaptive=False, global_bias=False,
                        'global_bias': Uniform(-50, 50)}
         if adaptive:
             priors_dict['a'] = AdaptiveSortedUniform(
-                0, 250, nfuncs_min=nfuncs_min)
+                0, 250, nfunc_min=nfunc_min)
     # Get a list of the priors we want
     args = bsr.basis_functions.get_param_names(func)
     prior_blocks = [priors_dict[arg] for arg in args]
@@ -173,7 +177,7 @@ class AdaptiveSortedUniform(SortedUniform):
 
     """Adaptive sorted uniform prior."""
 
-    def __init__(self, minimum, maximum, nfuncs_min=1):
+    def __init__(self, minimum, maximum, nfunc_min=1):
         """
         Set up prior object's hyperparameter values.
 
@@ -181,12 +185,12 @@ class AdaptiveSortedUniform(SortedUniform):
         ----------
         minimum: float
         maximum: float
-        nfuncs_min: int, optional
+        nfunc_min: int, optional
         """
         SortedUniform.__init__(self, minimum, maximum)
         self.minimum = minimum
         self.maximum = maximum
-        self.nfuncs_min = nfuncs_min
+        self.nfunc_min = nfunc_min
 
     def __call__(self, cube):
         """
@@ -205,18 +209,18 @@ class AdaptiveSortedUniform(SortedUniform):
         """
         # First get integer number of funcs
         theta = np.zeros(cube.shape)
-        nfuncs_max = cube.shape[0] - 1
+        nfunc_max = cube.shape[0] - 1
         # first component is a number of funcs
-        theta[0] = ((self.nfuncs_min - 0.5)
-                    + (1.0 + nfuncs_max - self.nfuncs_min) * cube[0])
-        nfuncs = int(np.round(theta[0]))
-        # perform SortedUniform on the next nfuncs components
-        theta[1:1 + nfuncs] = SortedUniform.__call__(self, cube[1:1 + nfuncs])
+        theta[0] = ((self.nfunc_min - 0.5)
+                    + (1.0 + nfunc_max - self.nfunc_min) * cube[0])
+        nfunc = int(np.round(theta[0]))
+        # perform SortedUniform on the next nfunc components
+        theta[1:1 + nfunc] = SortedUniform.__call__(self, cube[1:1 + nfunc])
         # do uniform prior on remaining components
-        if len(cube) > 1 + nfuncs:
-            theta[1 + nfuncs:] = (self.minimum
-                                  + (self.maximum - self.minimum)
-                                  * cube[1 + nfuncs:])
+        if len(cube) > 1 + nfunc:
+            theta[1 + nfunc:] = (
+                self.minimum + (self.maximum - self.minimum)
+                * cube[1 + nfunc:])
         return theta
 
 
