@@ -6,9 +6,48 @@ import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import fgivenx
 import fgivenx.plot
+import nestcheck.estimators
+import nestcheck.ns_run_utils
 
 
-def plot_1d(funcs, samples, weights, **kwargs):
+def plot_1d_runs(likelihood_list, run_list, combine=False, **kwargs):
+    funcs = [like.fit_fgivenx for like in likelihood_list]
+    samples = [run['theta'] for run in run_list]
+    weights = [nestcheck.ns_run_utils.get_w_rel(run) for run in run_list]
+    if combine:
+        if len(run_list) > 1:
+            logzs = [nestcheck.estimators.logz(run) for run in run_list]
+            fig = plot_1d_grid([funcs], [samples], [weights], logzs=[logzs],
+                               **kwargs)
+        else:
+            fig = plot_1d_grid(funcs, samples, weights, **kwargs)
+    else:
+        if len(run_list) == 1 and likelihood_list[0].adaptive:
+            fig = plot_1d_adaptive_multi(
+                likelihood_list[0].fit_fgivenx, run_list[0], nfunc_list=None,
+                **kwargs)
+        else:
+            fig = plot_1d_grid(funcs, samples, weights, **kwargs)
+    return fig
+
+
+def plot_1d_adaptive_multi(func, run, nfunc_list=None, **kwargs):
+    samp_nfuncs = np.round(run['theta'][:, 0]).astype(int)
+    if nfunc_list is None:
+        nfunc_list = list(np.unique(samp_nfuncs))
+    funcs = [func] * len(nfunc_list)
+    samples = []
+    weights = []
+    logw = nestcheck.ns_run_utils.get_logw(run)
+    for nf in nfunc_list:
+        inds = np.where(samp_nfuncs == nf)[0]
+        samples.append(run['theta'][inds, :])
+        logw_temp = logw[inds]
+        weights.append(np.exp(logw_temp - logw_temp.max()))
+    return plot_1d_grid(funcs, samples, weights, **kwargs)
+
+
+def plot_1d_grid(funcs, samples, weights, **kwargs):
     """Plot a bunch of fgivenx subplots"""
     if not isinstance(funcs, list):
         funcs = [funcs]
@@ -59,6 +98,7 @@ def plot_1d(funcs, samples, weights, **kwargs):
                         ecolor='darkred')
         if col == 0:
             ax.set_ylabel('$y$')
+        if (data is None and col == 0) or (data is not None and col == 2):
             cbar_plot = plt.colorbar(cbar, cax=plt.subplot(gs[row, -1]),
                                      ticks=[1, 2, 3])
             cbar_plot.solids.set_edgecolor('face')
