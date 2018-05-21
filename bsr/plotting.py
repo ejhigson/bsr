@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Functions for plotting the results."""
+import warnings
 import numpy as np
 import matplotlib
 import matplotlib.gridspec as gridspec
@@ -201,6 +202,7 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
     figsize = kwargs.pop('figsize', (2.1 * ncol + 1, 2.4 * nrow))
     colorbar_aspect = kwargs.pop('colorbar_aspect', 40)
     data_color = kwargs.pop('data_color', 'darkred')
+    # ncolorbar = kwargs.pop('ncolorbar', 1)
     # Make figure
     gs = gridspec.GridSpec(
         nrow, ncol + 1,
@@ -213,7 +215,8 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
             col = i % ncol
             row = i // ncol
             ax = plt.subplot(gs[row, col])
-    for i, ax in enumerate(fig.axes):
+    for i in range(nplots):
+        ax = fig.axes[i]
         col = i % ncol
         row = i // ncol
         # If plot_data we also want to plot the true function and the
@@ -223,6 +226,7 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
                 funcs[i], x, samples[i], ax, weights=weights[i],
                 logzs=logzs[i], y=x, **kwargs)
         elif i >= 2:
+            print(i, len(funcs))
             cbar = fgivenx_plot(
                 funcs[i - 2], x, samples[i - 2], ax, weights=weights[i - 2],
                 logzs=logzs[i - 2], y=x, **kwargs)
@@ -322,13 +326,19 @@ def fgivenx_plot(func, x, thetas, ax, **kwargs):
     ntrim = kwargs.pop('ntrim', None)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
-    y, pmf = fgivenx.compute_pmf(
-        func, x, thetas, logZ=logzs, weights=weights, parallel=parallel,
-        ntrim=ntrim, ny=ny, y=y, cache=cache, tqdm_kwargs=tqdm_kwargs)
-    cbar = fgivenx.plot.plot(
-        x, y, pmf, ax, colors=colormap, smooth=smooth,
-        rasterize_contours=rasterize_contours)
-    return cbar
+    try:
+        y, pmf = fgivenx.compute_pmf(
+            func, x, thetas, logZ=logzs, weights=weights, parallel=parallel,
+            ntrim=ntrim, ny=ny, y=y, cache=cache, tqdm_kwargs=tqdm_kwargs)
+        cbar = fgivenx.plot.plot(
+            x, y, pmf, ax, colors=colormap, smooth=smooth,
+            rasterize_contours=rasterize_contours)
+        return cbar
+    except ValueError:
+        warnings.warn(
+            ('ValueError in compute_pmf. Expected # samples={}'.format(
+                np.sum(weights) / weights.max())), UserWarning)
+        return None
 
 
 def plot_prior(likelihood, nsamples):
