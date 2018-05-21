@@ -9,7 +9,7 @@ from PIL import Image
 def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
                   **kwargs):
     """Get data dictionary."""
-    npoints = kwargs.pop('npoints', 32)
+    npoints = kwargs.pop('npoints', None)
     x1min = kwargs.pop('x1min', 0.0)
     x1max = kwargs.pop('x1max', 1.0)
     x2min = kwargs.pop('x2min', 0.0)
@@ -30,16 +30,18 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
         data['func_name'] = data_func
     else:
         data['func_name'] = data_func.__name__
-    data['data_name'] = get_data_name(
-        data_func, data_type, npoints, y_error_sigma, x_error_sigma)
     if data['func_name'][-2:] == '1d':
+        if npoints is None:
+            npoints = 100
         data['x1'] = (np.random.random(npoints) * (x1max - x1min)) + x1min
         data['x2'] = None
         data['x_error_sigma'] = x_error_sigma
     elif data['func_name'][-2:] == '2d' or data['func_name'] == 'get_image':
-        data['x1'], data['x2'] = make_grid(npoints, x2_points=npoints,
-                                           x1min=x1min, x2min=x2min,
-                                           x1max=x1max, x2max=x2max)
+        if npoints is None:
+            npoints = 32
+        data['x1'], data['x2'] = make_grid(
+            npoints, x2_points=npoints, x1min=x1min, x2min=x2min,
+            x1max=x1max, x2max=x2max)
         data['x2min'] = x2min
         data['x2max'] = x2max
         assert x_error_sigma is None
@@ -60,6 +62,8 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
                 data['y'] += data_func(data['x1'], data['x2'],
                                        *data_func_args[i::data_type])
     data['y_error_sigma'] = y_error_sigma
+    data['data_name'] = get_data_name(
+        data_func, data_type, npoints, y_error_sigma, x_error_sigma)
     # Add Noise
     # ---------
     data['y_no_noise'] = copy.deepcopy(data['y'])
@@ -134,12 +138,18 @@ def get_data_args(data_func, nfuncs):
         'no data args found! func={} nfuncs={}'.format(
             data_func.__name__, nfuncs))
     if data_func.__name__ == 'gg_1d':
-        # the order is (with first arg sorted):
+        # Old version before 2018-05
+        # if nfuncs == 1:
+        #     data_args = [{'a': 0.3, 'mu': 0.4, 'sigma': 0.2, 'beta': 2.0}]
+        # elif nfuncs == 2:
+        #     data_args = [{'a': 0.15, 'mu': 0.75, 'sigma': 0.1, 'beta': 2.0},
+        #                  {'a': 0.30, 'mu': 0.35, 'sigma': 0.2, 'beta': 4.0}]
+        # first arg is sorted
         if nfuncs == 1:
-            data_args = [{'a': 0.3, 'mu': 0.4, 'sigma': 0.2, 'beta': 2.0}]
+            data_args = [{'a': 0.4, 'mu': 0.4, 'sigma': 0.3, 'beta': 2.0}]
         elif nfuncs == 2:
-            data_args = [{'a': 0.15, 'mu': 0.75, 'sigma': 0.1, 'beta': 2.0},
-                         {'a': 0.30, 'mu': 0.35, 'sigma': 0.2, 'beta': 4.0}]
+            data_args = [{'a': 0.2, 'mu': 0.4, 'sigma': 0.6, 'beta': 5.0},
+                         {'a': 0.2, 'mu': 0.4, 'sigma': 0.2, 'beta': 4.0}]
     elif data_func.__name__ == 'gg_2d':
         # the order is (with first arg sorted):
         # [a_1, mu1_1, mu2_1, s1_1, s2_1, b1_1, b2_1, rot angle]
