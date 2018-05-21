@@ -22,6 +22,7 @@ hyperparameter values. These objects can be used in the same way as functions
 due to python's "duck typing" (alternatively you can define likelihoods
 using functions).
 """
+import warnings
 import numpy as np
 import scipy.special
 import bsr.basis_functions
@@ -159,10 +160,22 @@ class BasisFuncFit(object):
         evens = kwargs.pop('evens', True)
         assert theta.ndim == 2
         if w_rel is not None:
+            assert theta.shape[0] == w_rel.shape[0], (
+                '{} != {}'.format(theta.shape[0], w_rel.shape[0]))
+            w_rel /= w_rel.max()
+            w_rel_sum = np.sum(w_rel)
             if evens:
-                w_rel /= w_rel.max()
+                state = np.random.get_state()
+                np.random.seed(0)
                 w_rel = (np.random.random(w_rel.shape) < w_rel).astype(int)
+                state = np.random.set_state(state)
             inds = np.nonzero(w_rel)[0]
+            if inds.shape[0] == 0:
+                warnings.warn(
+                    ('fit_mean: No points with nonzero weight! {} points '
+                     'were input with sum(w_rel)={}'.format(
+                         theta.shape[0], w_rel_sum)), UserWarning)
+                return np.zeros(x1.shape)
             ys = np.apply_along_axis(self.fit, 1, theta[inds, :], x1, x2)
             ys *= w_rel[inds][:, np.newaxis, np.newaxis]
             return np.sum(ys, axis=0) / np.sum(w_rel[inds])

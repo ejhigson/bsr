@@ -12,26 +12,49 @@ import bsr.priors
 
 
 def plot_runs(likelihood_list, run_list, **kwargs):
+    """Wrapper for plotting ns runs (automatically tests if they are
+    1d or 2d)."""
     if not isinstance(likelihood_list, list):
         likelihood_list = [likelihood_list]
     if not isinstance(run_list, list):
         run_list = [run_list]
     assert len(run_list) == len(likelihood_list)
+    assert likelihood_list[0].basis_func.__name__[-2:] in ['1d', '2d']
     if len(likelihood_list) >= 1:
         for like in likelihood_list[1:]:
             assert like.data == likelihood_list[0].data
-    assert likelihood_list[0].basis_func.__name__[-2:] in ['1d', '2d']
+    kwargs['data'] = likelihood_list[0].data
+    if 'titles' not in kwargs:
+        kwargs['titles'] = get_default_titles(
+            likelihood_list, kwargs.get('plot_data', False),
+            kwargs.get('combine', True))
     if likelihood_list[0].basis_func.__name__[-2:] == '1d':
-        return plot_1d_runs(
-            likelihood_list, run_list, data=likelihood_list[0].data,
-            **kwargs)
+        fig = plot_1d_runs(likelihood_list, run_list, **kwargs)
     elif likelihood_list[0].basis_func.__name__[-2:] == '2d':
-        return plot_2d_runs(
-            likelihood_list, run_list, data=likelihood_list[0].data,
-            **kwargs)
+        fig = plot_2d_runs(likelihood_list, run_list, **kwargs)
+    return fig
+
+
+def get_default_titles(likelihood_list, combine, plot_data):
+    """Get some default titles for the plots."""
+    titles = []
+    if plot_data:
+        titles += ['true signal', 'noisy data']
+    if combine:
+        titles.append('fit')
+    else:
+        if len(likelihood_list) == 1 and likelihood_list[0].adaptive:
+            # As we don't know which funcs are being plotted, just assume they
+            # start with B=1 and add a longer list than we actuall need
+            titles += ['$B={}$'.format(i) for i in range(1, 12)]
+        else:
+            titles += ['$B={}$'.format(like.nfunc) for like in
+                       likelihood_list]
+    return titles
 
 
 def plot_2d_runs(likelihood_list, run_list, **kwargs):
+    """Wrapper for plotting nested sampling runs with 2d data as colormaps."""
     data = kwargs.pop('data')
     combine = kwargs.pop('combine', False)
     plot_data = kwargs.pop('plot_data', False)
@@ -55,13 +78,15 @@ def plot_2d_runs(likelihood_list, run_list, **kwargs):
             run = run_list[0]
             samp_nfuncs = np.round(run['theta'][:, 0]).astype(int)
             nfunc_list = kwargs.pop('nfunc_list', list(np.unique(samp_nfuncs)))
-            w_rel = nestcheck.ns_run_utils.get_w_rel(run)
+            logw = nestcheck.ns_run_utils.get_logw(run)
             for nf in nfunc_list:
                 inds = np.where(samp_nfuncs == nf)[0]
-                print(inds.shape)
+                w_rel = logw[inds]
+                # exp after selecting inds to avoid overflow
+                w_rel = np.exp(w_rel - w_rel.max())
                 y_list.append(likelihood_list[0].fit_mean(
                     run['theta'][inds, :], data['x1'],
-                    data['x2'], w_rel=w_rel[inds]))
+                    data['x2'], w_rel=w_rel))
         else:
             for i, run in enumerate(run_list):
                 w_rel = nestcheck.ns_run_utils.get_w_rel(run)
@@ -69,7 +94,7 @@ def plot_2d_runs(likelihood_list, run_list, **kwargs):
                     run['theta'], data['x1'], data['x2'], w_rel=w_rel))
     print('ymax:', [y.max() for y in y_list])
     print('ymin:', [y.min() for y in y_list])
-    return plot_colormap(y_list, data['x1'], data['x2'])
+    return plot_colormap(y_list, data['x1'], data['x2'], **kwargs)
 
 
 def plot_1d_runs(likelihood_list, run_list, **kwargs):
@@ -132,6 +157,8 @@ def plot_colormap(y_list, x1, x2, **kwargs):
             cax = plt.subplot(gs[row, -1])
             plt.colorbar(im, cax=cax)
             cax.set(aspect=colorbar_aspect)
+        if titles is not None:
+            ax.set_title(titles[i])
     gs.update(wspace=0.1, hspace=0.2)
     return fig
 
