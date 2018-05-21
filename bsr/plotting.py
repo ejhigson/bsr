@@ -200,19 +200,25 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
     titles = kwargs.pop('titles', None)
     figsize = kwargs.pop('figsize', (2.1 * ncol + 1, 2.4 * nrow))
     colorbar_aspect = kwargs.pop('colorbar_aspect', 40)
+    data_color = kwargs.pop('data_color', 'darkred')
     # Make figure
-    fig = plt.figure(figsize=figsize)
     gs = gridspec.GridSpec(
         nrow, ncol + 1,
         width_ratios=[colorbar_aspect] * ncol + [1],
         height_ratios=[1] * nrow)
-    for i in range(nplots):
+    fig = kwargs.pop('fig', None)
+    if fig is None:
+        fig = plt.figure(figsize=figsize)
+        for i in range(nplots):
+            col = i % ncol
+            row = i // ncol
+            ax = plt.subplot(gs[row, col])
+    for i, ax in enumerate(fig.axes):
         col = i % ncol
         row = i // ncol
-        ax = plt.subplot(gs[row, col])
         # If plot_data we also want to plot the true function and the
         # noisy data, and need to shift the other plots along
-        if plot_data:
+        if not plot_data:
             cbar = fgivenx_plot(
                 funcs[i], x, samples[i], ax, weights=weights[i],
                 logzs=logzs[i], y=x, **kwargs)
@@ -223,12 +229,15 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
         elif i == 0:
             y_true = np.zeros(x.shape)
             for nf in range(data['nfuncs']):
-                y_true += data['func'](x, *data['args'][nf::data['nfuncs']])
-            ax.plot(x, y_true, color='darkred')
+                comp = data['func'](x, *data['args'][nf::data['nfuncs']])
+                if data['nfuncs'] != 1:
+                    ax.plot(x, comp, color=data_color, linestyle=':')
+                y_true += comp
+            ax.plot(x, y_true, color=data_color)
         elif i == 1:
             ax.errorbar(data['x1'], data['y'], yerr=data['y_error_sigma'],
                         xerr=data['x_error_sigma'], fmt='none',
-                        ecolor='darkred')
+                        ecolor=data_color)
         if col == 0:
             ax.set_ylabel('$y$')
         if (data is None and col == 0) or (data is not None and col == 2):
