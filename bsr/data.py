@@ -134,9 +134,6 @@ def get_data_name(data_func, data_type, npoints, y_error_sigma, x_error_sigma):
 # -----------
 def get_data_args(data_func, nfuncs):
     """Returns default arguments for generating data."""
-    assert data_func.__name__ in ['gg_1d', 'gg_2d'], (
-        'no data args found! func={} nfuncs={}'.format(
-            data_func.__name__, nfuncs))
     if data_func.__name__ == 'gg_1d':
         # Old version before 2018-05
         # if nfuncs == 1:
@@ -150,6 +147,10 @@ def get_data_args(data_func, nfuncs):
         elif nfuncs == 2:
             data_args = [{'a': 0.2, 'mu': 0.4, 'sigma': 0.6, 'beta': 5.0},
                          {'a': 0.2, 'mu': 0.4, 'sigma': 0.2, 'beta': 4.0}]
+        elif nfuncs == 3:
+            data_args = [{'a': 0.2, 'mu': 0.4, 'sigma': 0.6, 'beta': 5.0},
+                         {'a': 0.14, 'mu': 0.32, 'sigma': 0.14, 'beta': 8.0},
+                         {'a': 0.05, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0}]
     elif data_func.__name__ == 'gg_2d':
         # the order is (with first arg sorted):
         # [a_1, mu1_1, mu2_1, s1_1, s2_1, b1_1, b2_1, rot angle]
@@ -173,6 +174,9 @@ def get_data_args(data_func, nfuncs):
                           'sigma1': 0.3, 'sigma2': 0.3,
                           'beta1': 2, 'beta2': 2,
                           'omega': 0}]
+    else:
+        raise AssertionError('no data args found! func={} nfuncs={}'.format(
+            data_func.__name__, nfuncs))
     data_args_list = []
     for name in inspect.signature(data_func).parameters:
         if name not in ['x', 'x1', 'x2']:
