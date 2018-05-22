@@ -55,11 +55,11 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
                 priors_dict[param + '2'] = priors_dict[param]
             priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
     elif func.__name__ in ['nn_1d', 'nn_2d']:
-        priors_dict = {'a':           SortedUniform(0, 250),
-                       'w_0':         Uniform(-25, 25),
-                       'w_1':         Uniform(-25, 25),
-                       'w_2':         Uniform(-25, 25),
-                       'global_bias': Uniform(-50, 50)}
+        priors_dict = {'a':           SortedUniform(0, 10),
+                       'w_0':         Uniform(-10, 10),
+                       'w_1':         Uniform(-10, 10),
+                       'w_2':         Uniform(-10, 10),
+                       'global_bias': Uniform(-10, 10)}
         if adaptive:
             priors_dict['a'] = AdaptiveSortedUniform(
                 0, 250, nfunc_min=nfunc_min)
