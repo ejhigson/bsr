@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 """Functions for plotting the results."""
+import functools
 import warnings
 import numpy as np
+import scipy.special
 import matplotlib
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -9,7 +11,67 @@ import fgivenx
 import fgivenx.plot
 import nestcheck.estimators
 import nestcheck.ns_run_utils
+import nestcheck.error_analysis
 import bsr.priors
+
+
+def adaptive_logz(run, logw=None, nfunc=1):
+    """Get the logz assigned to nfunc basis functions from an adaptive run.
+    Note that the absolute value does not correspond to that from a similar
+    vanilla run, but the relative value can be used when calculating Bayes
+    factors."""
+    if logw is None:
+        logw = nestcheck.ns_run_utils.get_logw(run)
+    vals = run['theta'][:, 0]
+    points = logw[((nfunc - 0.5) <= vals) & (vals < (nfunc + 0.5))]
+    if points.shape == (0,):
+        return -np.inf
+    else:
+        return scipy.special.logsumexp(points)
+
+
+def plot_bayes(vanilla_runs, adaptive_run, nfunc_list=None, **kwargs):
+    """Make a bar chart of vanilla and adaptive Bayes factors, including their
+    error bars."""
+    title = kwargs.pop('title', None)
+    ymin = kwargs.pop('ymin', -20)
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    # vanilla bayes
+    logzs = np.asarray([nestcheck.estimators.logz(run) for run in
+                        vanilla_runs])
+    v_bayes = logzs - logzs.max()
+    v_stds = np.asarray([nestcheck.error_analysis.run_std_bootstrap(
+        run, [nestcheck.estimators.logz], n_simulate=100)[0] for run
+                         in vanilla_runs])
+    # adaptive bayes
+    if isinstance(adaptive_run, list):
+        assert len(adaptive_run) == 1
+        adaptive_run = adaptive_run[0]
+    if nfunc_list is None:
+        samp_nfuncs = np.round(adaptive_run['theta'][:, 0]).astype(int)
+        nfunc_list = list(np.unique(samp_nfuncs))
+    funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in nfunc_list]
+    a_bayes = nestcheck.ns_run_utils.run_estimators(adaptive_run, funcs)
+    a_bayes -= a_bayes.max()
+    a_stds = nestcheck.error_analysis.run_std_bootstrap(
+        adaptive_run, funcs, n_simulate=100)
+    # Make the plot
+    ind = np.arange(len(nfunc_list))  # the x locations for the groups
+    width = 0.35       # the width of the bars
+    fig, ax = plt.subplots()
+    a_bars = ax.bar(ind - 0.5 * width, a_bayes, width, color='darkred',
+                    yerr=a_stds)
+    v_bars = ax.bar(ind + 0.5 * width, v_bayes, width, color='darkblue',
+                    yerr=v_stds)
+    ax.set_ylabel('Bayes Factors')
+    if title is not None:
+        ax.set_title(title)
+    ax.set_xticks(ind)
+    ax.set_xticklabels(['$B={}$'.format(nf) for nf in nfunc_list])
+    ax.legend((a_bars[0], v_bars[0]), ('adaptive', 'vanilla'))
+    ax.set_ylim([ymin, 0])
+    return fig, (a_bayes, v_bayes, a_stds, v_stds)
 
 
 def plot_runs(likelihood_list, run_list, **kwargs):
@@ -99,6 +161,7 @@ def plot_2d_runs(likelihood_list, run_list, **kwargs):
 
 
 def plot_1d_runs(likelihood_list, run_list, **kwargs):
+    """Get samples, weights and funcs then feed into plot_1d_grid."""
     combine = kwargs.pop('combine', False)
     funcs = [like.fit_fgivenx for like in likelihood_list]
     samples = [run['theta'] for run in run_list]
@@ -165,6 +228,8 @@ def plot_colormap(y_list, x1, x2, **kwargs):
 
 
 def plot_1d_adaptive_multi(func, run, nfunc_list=None, **kwargs):
+    """Helper function for getting samples and weights for each number of
+    basis functions from a 1d adaptive run."""
     samp_nfuncs = np.round(run['theta'][:, 0]).astype(int)
     if nfunc_list is None:
         nfunc_list = list(np.unique(samp_nfuncs))
