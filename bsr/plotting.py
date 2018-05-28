@@ -81,7 +81,8 @@ def plot_runs(likelihood_list, run_list, **kwargs):
         likelihood_list = [likelihood_list]
     if not isinstance(run_list, list):
         run_list = [run_list]
-    assert len(run_list) == len(likelihood_list)
+    assert len(run_list) == len(likelihood_list), '{}!={}'.format(
+        len(run_list), len(likelihood_list))
     assert likelihood_list[0].basis_func.__name__[-2:] in ['1d', '2d']
     if len(likelihood_list) >= 1:
         for like in likelihood_list[1:]:
