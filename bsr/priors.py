@@ -41,28 +41,29 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     # specify default priors
     if func.__name__ in ['gg_1d', 'gg_2d']:
-        priors_dict = {'a':     SortedUniform(0, 1.0),
+        priors_dict = {'a':     SortedExponential(2.0),
                        'mu':    Uniform(0, 1.0),
-                       'sigma': Uniform(0.01, 1.0),
-                       'beta':  Uniform(0.1, 10.0)}
+                       'sigma': Exponential(2.0),
+                       'beta':  Exponential(0.5)}
         if adaptive:
-            priors_dict['a'] = AdaptiveSortedUniform(
-                nfunc_min=nfunc_min, **priors_dict['a'])
+            priors_dict['a'] = AdaptiveSortedExponential(
+                nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
         assert not global_bias
         if func.__name__ == 'gg_2d':
             for param in ['mu', 'sigma', 'beta']:
                 priors_dict[param + '1'] = priors_dict[param]
                 priors_dict[param + '2'] = priors_dict[param]
+                del priors_dict[param]  # To make error if accidentally used
             priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
     elif func.__name__ in ['nn_1d', 'nn_2d']:
-        priors_dict = {'a':           SortedUniform(0, 10),
-                       'w_0':         Uniform(-10, 10),
-                       'w_1':         Uniform(-10, 10),
-                       'w_2':         Uniform(-10, 10),
-                       'global_bias': Uniform(-10, 10)}
+        priors_dict = {'a':           SortedExponential(0.5),
+                       'w_0':         Gaussian(2.5),
+                       'w_1':         Gaussian(2.5),
+                       'w_2':         Gaussian(2.5),
+                       'global_bias': Gaussian(2.5)}
         if adaptive:
-            priors_dict['a'] = AdaptiveSortedUniform(
-                nfunc_min=nfunc_min, **priors_dict['a'])
+            priors_dict['a'] = AdaptiveSortedExponential(
+                nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
     # Get a list of the priors we want
     args = bsr.basis_functions.get_param_names(func)
     prior_blocks = [priors_dict[arg] for arg in args]
