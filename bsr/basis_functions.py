@@ -3,7 +3,6 @@
 
 import inspect
 import numpy as np
-import scipy.special
 
 
 def get_param_names(basis_func):
@@ -59,9 +58,16 @@ def get_param_latex_names(basis_func):
 
 
 def gg_1d(x, a, mu, sigma, beta):
-    """1d generalised gaussian"""
-    const = a * beta / (2 * sigma * scipy.special.gamma(1.0 / beta))
-    return const * np.exp((-1.0) * (np.absolute(x - mu) / sigma) ** beta)
+    """1d generalised gaussian.
+
+    Normalisation constant
+
+    >>> const = a * beta / (2 * sigma * scipy.special.gamma(1.0 / beta))
+
+    is excluded to avoid degeneracies between sigma and a, so the maxiumum of
+    the basis function = a.
+    """
+    return a * np.exp((-1.0) * (np.absolute(x - mu) / sigma) ** beta)
 
 
 def gg_2d(x1, x2, a, mu1, mu2, sigma1, sigma2, beta1, beta2, omega):
