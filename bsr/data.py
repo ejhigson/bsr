@@ -143,14 +143,14 @@ def get_data_args(data_func, nfuncs):
         #                  {'a': 0.30, 'mu': 0.35, 'sigma': 0.2, 'beta': 4.0}]
         # first arg is sorted
         if nfuncs == 1:
-            data_args = [{'a': 0.4, 'mu': 0.4, 'sigma': 0.3, 'beta': 2.0}]
+            data_args = [{'a': 0.75, 'mu': 0.4, 'sigma': 0.3, 'beta': 2.0}]
         elif nfuncs == 2:
             data_args = [{'a': 0.2, 'mu': 0.4, 'sigma': 0.6, 'beta': 5.0},
-                         {'a': 0.2, 'mu': 0.4, 'sigma': 0.2, 'beta': 4.0}]
+                         {'a': 0.55, 'mu': 0.4, 'sigma': 0.2, 'beta': 4.0}]
         elif nfuncs == 3:
             data_args = [{'a': 0.2, 'mu': 0.4, 'sigma': 0.6, 'beta': 5.0},
-                         {'a': 0.14, 'mu': 0.32, 'sigma': 0.14, 'beta': 8.0},
-                         {'a': 0.05, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0}]
+                         {'a': 0.35, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0},
+                         {'a': 0.55, 'mu': 0.32, 'sigma': 0.14, 'beta': 8.0}]
     elif data_func.__name__ == 'gg_2d':
         # the order is (with first arg sorted):
         # [a_1, mu1_1, mu2_1, s1_1, s2_1, b1_1, b2_1, rot angle]
