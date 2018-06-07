@@ -34,7 +34,7 @@ def plot_bayes(vanilla_runs, adaptive_run, nfunc_list=None, **kwargs):
     """Make a bar chart of vanilla and adaptive Bayes factors, including their
     error bars."""
     title = kwargs.pop('title', None)
-    ymin = kwargs.pop('ymin', -20)
+    ymin = kwargs.pop('ymin', -10)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     # vanilla bayes
@@ -83,18 +83,23 @@ def plot_runs(likelihood_list, run_list, **kwargs):
         run_list = [run_list]
     assert len(run_list) == len(likelihood_list), '{}!={}'.format(
         len(run_list), len(likelihood_list))
-    assert likelihood_list[0].basis_func.__name__[-2:] in ['1d', '2d']
-    if len(likelihood_list) >= 1:
-        for like in likelihood_list[1:]:
-            assert like.data == likelihood_list[0].data
-    kwargs['data'] = likelihood_list[0].data
     if 'titles' not in kwargs:
         kwargs['titles'] = get_default_titles(
             likelihood_list, kwargs.get('plot_data', False),
             kwargs.get('combine', True))
-    if likelihood_list[0].basis_func.__name__[-2:] == '1d':
+    if len(likelihood_list) >= 1:
+        assert likelihood_list[0].basis_func.__name__[-2:] in ['1d', '2d']
+        for like in likelihood_list[1:]:
+            assert like.data == likelihood_list[0].data
+        kwargs['data'] = likelihood_list[0].data
+        dim_str = likelihood_list[0].basis_func.__name__[-2:]
+    else:
+        assert 'data' in kwargs
+        dim_str = kwargs['data']['func_name'][-2:]
+        assert dim_str in ['1d', '2d']
+    if dim_str == '1d':
         fig = plot_1d_runs(likelihood_list, run_list, **kwargs)
-    elif likelihood_list[0].basis_func.__name__[-2:] == '2d':
+    elif dim_str == '2d':
         fig = plot_2d_runs(likelihood_list, run_list, **kwargs)
     return fig
 
