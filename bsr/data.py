@@ -152,24 +152,39 @@ def get_data_args(data_func, nfuncs):
                          {'a': 0.35, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0},
                          {'a': 0.55, 'mu': 0.32, 'sigma': 0.14, 'beta': 6.0}]
     elif data_func.__name__ == 'gg_2d':
+        # Old version before 2018-05
+        # if nfuncs == 1:
+        #     data_args = [{'a': 0.1,
+        #                   'mu1': 0.7, 'mu2': 0.6,
+        #                   'sigma1': 0.1, 'sigma2': 0.1,
+        #                   'beta1': 4, 'beta2': 0.5,
+        #                   'omega': 0.15 * np.pi}]
+        # elif nfuncs == 2:
+        #     data_args = [{'a': 0.1,
+        #                   'mu1': 0.35, 'mu2': 0.85,
+        #                   'sigma1': 0.1, 'sigma2': 0.5,
+        #                   'beta1': 4, 'beta2': 4,
+        #                   'omega': 0.1 * np.pi},
+        #                  {'a': 0.3,
+        #                   'mu1': 0.25, 'mu2': 0.0,
+        #                   'sigma1': 0.3, 'sigma2': 0.3,
+        #                   'beta1': 2, 'beta2': 2,
+        #                   'omega': 0}]
         # the order is (with first arg sorted):
         # [a_1, mu1_1, mu2_1, s1_1, s2_1, b1_1, b2_1, rot angle]
         if nfuncs == 1:
-            # data_args = [0.1, 0.7, 0.6, 0.1, 0.1, 4, .5, 0.15 * np.pi]
-            data_args = [{'a': 0.1,
+            data_args = [{'a': 0.7,
                           'mu1': 0.7, 'mu2': 0.6,
                           'sigma1': 0.1, 'sigma2': 0.1,
                           'beta1': 4, 'beta2': 0.5,
                           'omega': 0.15 * np.pi}]
         elif nfuncs == 2:
-            # data_args = [0.1, 0.3, 0.35, 0.25, 0.85, 0.0, 0.1, 0.3, 0.5, 0.3,
-            #              4.0, 2, 4, 2, np.pi * 0.1, 0.0]
-            data_args = [{'a': 0.1,
+            data_args = [{'a': 0.3,
                           'mu1': 0.35, 'mu2': 0.85,
                           'sigma1': 0.1, 'sigma2': 0.5,
                           'beta1': 4, 'beta2': 4,
                           'omega': 0.1 * np.pi},
-                         {'a': 0.3,
+                         {'a': 0.7,
                           'mu1': 0.25, 'mu2': 0.0,
                           'sigma1': 0.3, 'sigma2': 0.3,
                           'beta1': 2, 'beta2': 2,
