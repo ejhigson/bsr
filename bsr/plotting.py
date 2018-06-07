@@ -35,6 +35,7 @@ def plot_bayes(vanilla_runs, adaptive_run, nfunc_list=None, **kwargs):
     error bars."""
     title = kwargs.pop('title', None)
     ymin = kwargs.pop('ymin', -10)
+    figsize = kwargs.pop('figsize', (3, 2))
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     # vanilla bayes
@@ -59,7 +60,7 @@ def plot_bayes(vanilla_runs, adaptive_run, nfunc_list=None, **kwargs):
     # Make the plot
     ind = np.arange(len(nfunc_list))  # the x locations for the groups
     width = 0.35       # the width of the bars
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=figsize)
     a_bars = ax.bar(ind - 0.5 * width, a_bayes, width, color='darkred',
                     yerr=a_stds)
     v_bars = ax.bar(ind + 0.5 * width, v_bayes, width, color='darkblue',
@@ -68,7 +69,7 @@ def plot_bayes(vanilla_runs, adaptive_run, nfunc_list=None, **kwargs):
     if title is not None:
         ax.set_title(title)
     ax.set_xticks(ind)
-    ax.set_xticklabels(['$B={}$'.format(nf) for nf in nfunc_list])
+    ax.set_xticklabels(['${}$'.format(nf) for nf in nfunc_list])
     ax.legend((a_bars[0], v_bars[0]), ('adaptive', 'vanilla'))
     ax.set_ylim([ymin, 0])
     return fig, (a_bayes, v_bayes, a_stds, v_stds)
@@ -92,14 +93,10 @@ def plot_runs(likelihood_list, run_list, **kwargs):
         for like in likelihood_list[1:]:
             assert like.data == likelihood_list[0].data
         kwargs['data'] = likelihood_list[0].data
-        dim_str = likelihood_list[0].basis_func.__name__[-2:]
-    else:
-        assert 'data' in kwargs
-        dim_str = kwargs['data']['func_name'][-2:]
-        assert dim_str in ['1d', '2d']
-    if dim_str == '1d':
+    if kwargs['data']['y'].ndim == 1:
         fig = plot_1d_runs(likelihood_list, run_list, **kwargs)
-    elif dim_str == '2d':
+    elif kwargs['data']['y'].ndim == 2:
+        kwargs.pop('ntrim', None)
         fig = plot_2d_runs(likelihood_list, run_list, **kwargs)
     return fig
 
@@ -229,7 +226,7 @@ def plot_colormap(y_list, x1, x2, **kwargs):
             cax.set(aspect=colorbar_aspect)
         if titles is not None:
             ax.set_title(titles[i])
-    gs.update(wspace=0.1, hspace=0.2)
+    fig = adjust_spacing(fig, figsize, gs)
     return fig
 
 
@@ -332,12 +329,36 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
         ax.xaxis.set_major_locator(
             matplotlib.ticker.MaxNLocator(nbins=5, prune=prune))
         if titles is not None:
-            ax.set_title(titles[i])
+            ax.set_title(titles[i], fontsize=8)
         if row == nrow - 1:
             ax.set_xlabel('$x$')
         if i != 0:
             ax.set_yticklabels([])
-    gs.update(wspace=0.1, hspace=0.2)
+    fig = adjust_spacing(fig, figsize, gs)
+    return fig
+
+
+def adjust_spacing(fig, figsize, gs):
+    """Adjust plotgrid position to make sure plots are square and use all
+    the available space."""
+    wspace = 0.1
+    gs.update(wspace=wspace, hspace=0.2)
+    margins = {'top': 0.2, 'bottom': 0.4, 'left': 0.45, 'right': 0.3}
+    # fit squared vertically into space left after top and bottom margins
+    adjust = {}
+    adjust['bottom'] = margins['bottom'] / figsize[1]
+    adjust['top'] = 1 - (margins['top'] / figsize[1])
+    side_length = figsize[1] - (adjust['top'] - adjust['bottom'])
+    wr = gs.get_width_ratios()
+    width = ((sum(wr) / max(wr)) + (len(wr) - 1) * wspace) * side_length
+    space = figsize[0] - (width + margins['left'] + margins['right'])
+    if space < 0:
+        warnings.warn('I need {} more horizonal inches to fit square plots'
+                      .format(space), UserWarning)
+        space = 0
+    adjust['left'] = (margins['left'] + space / 2) / figsize[0]
+    adjust['right'] = 1 - ((margins['right'] + space / 2) / figsize[0])
+    fig.subplots_adjust(**adjust)
     return fig
 
 
