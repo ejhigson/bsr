@@ -53,7 +53,10 @@ def get_param_latex_names(basis_func):
         try:
             latex_names.append(latex_map[param])
         except KeyError:
-            latex_names.append(param)
+            if param[:2] == 'w_':
+                latex_names.append('w_{' + param[2:] + '}')
+            else:
+                latex_names.append(param)
     return ['${}$'.format(name) for name in latex_names]
 
 
