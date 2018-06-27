@@ -273,8 +273,7 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
     # ncolorbar = kwargs.pop('ncolorbar', 1)
     # Make figure
     gs = gridspec.GridSpec(
-        nrow, ncol + 1,
-        width_ratios=[colorbar_aspect] * ncol + [1],
+        nrow, ncol + 1, width_ratios=[colorbar_aspect] * ncol + [1],
         height_ratios=[1] * nrow)
     fig = kwargs.pop('fig', None)
     if fig is None:
@@ -289,16 +288,7 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
         row = i // ncol
         # If plot_data we also want to plot the true function and the
         # noisy data, and need to shift the other plots along
-        if not plot_data:
-            cbar = fgivenx_plot(
-                funcs[i], x, samples[i], ax, weights=weights[i],
-                logzs=logzs[i], y=x, **kwargs)
-        elif i >= 2:
-            print(i, len(funcs))
-            cbar = fgivenx_plot(
-                funcs[i - 2], x, samples[i - 2], ax, weights=weights[i - 2],
-                logzs=logzs[i - 2], y=x, **kwargs)
-        elif i == 0:
+        if plot_data and i == 0:
             y_true = np.zeros(x.shape)
             for nf in range(data['nfuncs']):
                 comp = data['func'](x, *data['args'][nf::data['nfuncs']])
@@ -306,10 +296,22 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
                     ax.plot(x, comp, color=data_color, linestyle=':')
                 y_true += comp
             ax.plot(x, y_true, color=data_color)
-        elif i == 1:
+        elif plot_data and i == 1:
             ax.errorbar(data['x1'], data['y'], yerr=data['y_error_sigma'],
                         xerr=data['x_error_sigma'], fmt='none',
                         ecolor=data_color)
+        elif plot_data:  # for i >= 2
+            cbar = fgivenx_plot(
+                funcs[i - 2], x, samples[i - 2], ax, weights=weights[i - 2],
+                logzs=logzs[i - 2], y=x, **kwargs)
+            # # plot MAP
+            # ax.plot(x, funcs[i - 2](x, samples[i - 2][-1, :]), color='black')
+        else:
+            cbar = fgivenx_plot(
+                funcs[i], x, samples[i], ax, weights=weights[i],
+                logzs=logzs[i], y=x, **kwargs)
+            # # plot MAP
+            # ax.plot(x, funcs[i](x, samples[i][-1, :]), color='black')
         if col == 0:
             ax.set_ylabel('$y$')
         if (data is None and col == 0) or (data is not None and col == 2):
@@ -329,10 +331,12 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
         ax.xaxis.set_major_locator(
             matplotlib.ticker.MaxNLocator(nbins=5, prune=prune))
         if titles is not None:
-            ax.set_title(titles[i], fontsize=8)
+            ax.set_title(titles[i])
         if row == nrow - 1:
             ax.set_xlabel('$x$')
-        if i != 0:
+        else:
+            ax.set_xticklabels([])
+        if col != 0:
             ax.set_yticklabels([])
     fig = adjust_spacing(fig, figsize, gs)
     return fig
@@ -342,7 +346,11 @@ def adjust_spacing(fig, figsize, gs):
     """Adjust plotgrid position to make sure plots are square and use all
     the available space."""
     wspace = 0.1
-    gs.update(wspace=wspace, hspace=0.2)
+    wr = gs.get_width_ratios()
+    hr = gs.get_height_ratios()
+    gs.update(wspace=wspace)
+    if len(hr) > 1:
+        gs.update(hspace=0.5)
     margins = {'top': 0.2, 'bottom': 0.4, 'left': 0.45, 'right': 0.3}
     # fit squared vertically into space left after top and bottom margins
     adjust = {}
