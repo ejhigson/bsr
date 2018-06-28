@@ -14,7 +14,7 @@ def sum_basis_funcs(basis_func, args_iterable, nfunc, x1, **kwargs):
     """Sum up some basis functions."""
     x2 = kwargs.pop('x2', None)
     global_bias = kwargs.pop('global_bias', basis_func.__name__[:2] == 'nn')
-    sigmoid = kwargs.pop('sigmoid', basis_func.__name__[:2] == 'nn')
+    sigmoid = kwargs.pop('sigmoid', basis_func.__name__ == 'nn_2d')
     adaptive = kwargs.pop('adaptive', False)
     assert isinstance(nfunc, int), str(nfunc)
     if kwargs:

@@ -57,10 +57,10 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
             priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
     elif func.__name__ in ['nn_1d', 'nn_2d']:
         priors_dict = {'a':           SortedExponential(0.5),
-                       'w_0':         Gaussian(2.5),
-                       'w_1':         Gaussian(2.5),
-                       'w_2':         Gaussian(2.5),
-                       'global_bias': Gaussian(2.5)}
+                       'w_0':         Gaussian(10.0),
+                       'w_1':         Gaussian(10.0),
+                       'w_2':         Gaussian(10.0),
+                       'global_bias': Gaussian(10.0)}
         if adaptive:
             priors_dict['a'] = AdaptiveSortedExponential(
                 nfunc_min=nfunc_min, **priors_dict['a'].__dict__)

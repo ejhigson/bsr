@@ -39,8 +39,6 @@ class BasisFuncFit(object):
         self.adaptive = kwargs.pop('adaptive', False)
         self.global_bias = kwargs.pop(  # default True if nn, False otherwise
             'global_bias', basis_func.__name__[:2] == 'nn')
-        self.sigmoid = kwargs.pop(  # default True if nn, False otherwise
-            'sigmoid', basis_func.__name__[:2] == 'nn')
         if kwargs:
             raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
         self.data = data
@@ -128,8 +126,7 @@ class BasisFuncFit(object):
         # Deal with adaptive nfunc specification
         return bf.sum_basis_funcs(
             self.basis_func, theta, self.nfunc, x1, x2=x2,
-            global_bias=self.global_bias,
-            sigmoid=self.sigmoid, adaptive=self.adaptive)
+            global_bias=self.global_bias, adaptive=self.adaptive)
 
 
     def fit_fgivenx(self, x1, theta):

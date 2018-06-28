@@ -294,13 +294,15 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
             if data['nfuncs'] != 1:
                 for nf in range(data['nfuncs']):
                     if data['func'].__name__[:2] == 'nn':
-                        comp = data['func'](x, *data['args'][:-1][nf::data['nfuncs']])
-                        comp = bf.sigmoid_func(comp)
+                        comp = data['func'](
+                            x, *data['args'][:-1][nf::data['nfuncs']])
                     else:
-                        comp = data['func'](x, *data['args'][nf::data['nfuncs']])
+                        comp = data['func'](
+                            x, *data['args'][nf::data['nfuncs']])
                     ax.plot(x, comp, color=data_color, linestyle=':')
             y_true = bf.sum_basis_funcs(
-                data['func'], np.asarray(copy.deepcopy(data['args'])), data['nfuncs'], x)
+                data['func'], np.asarray(copy.deepcopy(data['args'])),
+                data['nfuncs'], x)
             ax.plot(x, y_true, color=data_color)
         elif plot_data and i == 1:
             ax.errorbar(data['x1'], data['y'], yerr=data['y_error_sigma'],
