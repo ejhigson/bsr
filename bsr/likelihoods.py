@@ -128,7 +128,6 @@ class BasisFuncFit(object):
             self.basis_func, theta, self.nfunc, x1, x2=x2,
             global_bias=self.global_bias, adaptive=self.adaptive)
 
-
     def fit_fgivenx(self, x1, theta):
         """Wrapper for correct arg order for fgivenx."""
         return self.fit(theta, x1)

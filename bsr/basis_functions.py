@@ -43,6 +43,24 @@ def sum_basis_funcs(basis_func, args_iterable, nfunc, x1, **kwargs):
     return y
 
 
+def prop_layer(inputs, w_arr, act_func=np.tanh):
+    """Propogate a neural network layer.
+
+    Parameters
+    ----------
+    act_func: function
+    inputs: 1d numpy array
+    w_0: 1d numpy array
+    w_1: 2d numpy array
+    """
+    assert inputs.ndim == 1
+    assert w_arr.ndim == 2
+    assert w_arr.shape[1] == inputs.shape[0] + 1
+    out = np.matmul(w_arr[:, 1:], np.atleast_2d(inputs).T)
+    out = np.squeeze(out) + w_arr[:, 0]
+    return act_func(out)
+
+
 def get_param_names(basis_func):
     """Get a list of the parameters of the bais function (excluding x
     inputs).
