@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """Generate data for fitting."""
 import copy
-import inspect
 import numpy as np
 from PIL import Image
+import bsr.basis_functions as bf
 
 
 def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
@@ -51,16 +51,11 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
         data['image_file'] = data_type
     else:
         data_func_args = get_data_args(data_func, data_type)
-        data['args'] = data_func_args
+        data['args'] = copy.deepcopy(data_func_args)
         data['nfuncs'] = data_type
-        data['y'] = 0
-        for i in range(data_type):
-            if data['x2'] is None:
-                data['y'] += data_func(data['x1'],
-                                       *data_func_args[i::data_type])
-            else:
-                data['y'] += data_func(data['x1'], data['x2'],
-                                       *data_func_args[i::data_type])
+        data['y'] = bf.sum_basis_funcs(
+            data_func, data_func_args, data_type, data['x1'],
+            x2=data['x2'], adaptive=False)
     data['y_error_sigma'] = y_error_sigma
     data['data_name'] = get_data_name(
         data_func, data_type, npoints, y_error_sigma, x_error_sigma)
@@ -135,12 +130,6 @@ def get_data_name(data_func, data_type, npoints, y_error_sigma, x_error_sigma):
 def get_data_args(data_func, nfuncs):
     """Returns default arguments for generating data."""
     if data_func.__name__ == 'gg_1d':
-        # Old version before 2018-05
-        # if nfuncs == 1:
-        #     data_args = [{'a': 0.3, 'mu': 0.4, 'sigma': 0.2, 'beta': 2.0}]
-        # elif nfuncs == 2:
-        #     data_args = [{'a': 0.15, 'mu': 0.75, 'sigma': 0.1, 'beta': 2.0},
-        #                  {'a': 0.30, 'mu': 0.35, 'sigma': 0.2, 'beta': 4.0}]
         # first arg is sorted
         if nfuncs == 1:
             data_args = [{'a': 0.75, 'mu': 0.4, 'sigma': 0.3, 'beta': 2.0}]
@@ -151,25 +140,15 @@ def get_data_args(data_func, nfuncs):
             data_args = [{'a': 0.2, 'mu': 0.4, 'sigma': 0.6, 'beta': 5.0},
                          {'a': 0.35, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0},
                          {'a': 0.55, 'mu': 0.32, 'sigma': 0.14, 'beta': 6.0}]
+    elif data_func.__name__ == 'nn_1d':
+        if nfuncs == 1:
+            data_args = [{'a': 2, 'w_0': -2, 'w_1': 4.0}]
+            const = 0
+        elif nfuncs == 2:
+            data_args = [{'a': -2, 'w_0': -6, 'w_1': 8.0},
+                         {'a': 2, 'w_0': -2, 'w_1': 8.0}]
+            const = -3
     elif data_func.__name__ == 'gg_2d':
-        # Old version before 2018-05
-        # if nfuncs == 1:
-        #     data_args = [{'a': 0.1,
-        #                   'mu1': 0.7, 'mu2': 0.6,
-        #                   'sigma1': 0.1, 'sigma2': 0.1,
-        #                   'beta1': 4, 'beta2': 0.5,
-        #                   'omega': 0.15 * np.pi}]
-        # elif nfuncs == 2:
-        #     data_args = [{'a': 0.1,
-        #                   'mu1': 0.35, 'mu2': 0.85,
-        #                   'sigma1': 0.1, 'sigma2': 0.5,
-        #                   'beta1': 4, 'beta2': 4,
-        #                   'omega': 0.1 * np.pi},
-        #                  {'a': 0.3,
-        #                   'mu1': 0.25, 'mu2': 0.0,
-        #                   'sigma1': 0.3, 'sigma2': 0.3,
-        #                   'beta1': 2, 'beta2': 2,
-        #                   'omega': 0}]
         # the order is (with first arg sorted):
         # [a_1, mu1_1, mu2_1, s1_1, s2_1, b1_1, b2_1, rot angle]
         if nfuncs == 1:
@@ -193,7 +172,8 @@ def get_data_args(data_func, nfuncs):
         raise AssertionError('no data args found! func={} nfuncs={}'.format(
             data_func.__name__, nfuncs))
     data_args_list = []
-    for name in inspect.signature(data_func).parameters:
-        if name not in ['x', 'x1', 'x2']:
-            data_args_list += [d[name] for d in data_args]
+    for name in bf.get_param_names(data_func):
+        data_args_list += [d[name] for d in data_args]
+    if data_func.__name__[:2] == 'nn':
+        data_args_list.append(const)
     return data_args_list

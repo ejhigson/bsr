@@ -25,7 +25,7 @@ using functions).
 import warnings
 import numpy as np
 import scipy.special
-import bsr.basis_functions
+import bsr.basis_functions as bf
 
 
 class BasisFuncFit(object):
@@ -48,7 +48,7 @@ class BasisFuncFit(object):
             'Not yet set up to deal with x errors in 2d')
         self.basis_func = basis_func
         self.nfunc = nfunc
-        self.nargs = len(bsr.basis_functions.get_param_names(basis_func))
+        self.nargs = len(bf.get_param_names(basis_func))
         self.ndim = self.nfunc * self.nargs
         if self.adaptive:
             self.ndim += 1
@@ -57,7 +57,7 @@ class BasisFuncFit(object):
 
     def get_param_names(self):
         """Get list of parameter names as str."""
-        bf_params = bsr.basis_functions.get_param_names(self.basis_func)
+        bf_params = bf.get_param_names(self.basis_func)
         param_names = []
         if self.adaptive:
             param_names.append('B')
@@ -71,7 +71,7 @@ class BasisFuncFit(object):
 
     def get_param_latex_names(self):
         """Get list of parameter names as str."""
-        bf_params = bsr.basis_functions.get_param_latex_names(
+        bf_params = bf.get_param_latex_names(
             self.basis_func)
         param_names = []
         if self.adaptive:
@@ -126,28 +126,11 @@ class BasisFuncFit(object):
         Fit the data using the model and parameters theta.
         """
         # Deal with adaptive nfunc specification
-        if self.adaptive:
-            sum_max = int(np.round(theta[0]))
-            args_arr = theta[1:]
-        else:
-            sum_max = self.nfunc
-            args_arr = theta
-        # Deal with global bias
-        if self.global_bias:
-            y = args_arr[-1]
-            args_arr = args_arr[:-1]
-        else:
-            y = 0.0
-        # Sum basis functions
-        if x2 is None:
-            for i in range(sum_max):
-                y += self.basis_func(x1, *args_arr[i::self.nfunc])
-        else:
-            for i in range(sum_max):
-                y += self.basis_func(x1, x2, *args_arr[i::self.nfunc])
-        if self.sigmoid:
-            y = 1. / (1. + np.exp(-y))
-        return y
+        return bf.sum_basis_funcs(
+            self.basis_func, theta, self.nfunc, x1, x2=x2,
+            global_bias=self.global_bias,
+            sigmoid=self.sigmoid, adaptive=self.adaptive)
+
 
     def fit_fgivenx(self, x1, theta):
         """Wrapper for correct arg order for fgivenx."""

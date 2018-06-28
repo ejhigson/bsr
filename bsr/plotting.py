@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Functions for plotting the results."""
 import functools
+import copy
 import warnings
 import numpy as np
 import scipy.special
@@ -13,6 +14,7 @@ import nestcheck.estimators
 import nestcheck.ns_run_utils
 import nestcheck.error_analysis
 import bsr.priors
+import bsr.basis_functions as bf
 
 
 def adaptive_logz(run, logw=None, nfunc=1):
@@ -289,12 +291,16 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
         # If plot_data we also want to plot the true function and the
         # noisy data, and need to shift the other plots along
         if plot_data and i == 0:
-            y_true = np.zeros(x.shape)
-            for nf in range(data['nfuncs']):
-                comp = data['func'](x, *data['args'][nf::data['nfuncs']])
-                if data['nfuncs'] != 1:
+            if data['nfuncs'] != 1:
+                for nf in range(data['nfuncs']):
+                    if data['func'].__name__[:2] == 'nn':
+                        comp = data['func'](x, *data['args'][:-1][nf::data['nfuncs']])
+                        comp = bf.sigmoid_func(comp)
+                    else:
+                        comp = data['func'](x, *data['args'][nf::data['nfuncs']])
                     ax.plot(x, comp, color=data_color, linestyle=':')
-                y_true += comp
+            y_true = bf.sum_basis_funcs(
+                data['func'], np.asarray(copy.deepcopy(data['args'])), data['nfuncs'], x)
             ax.plot(x, y_true, color=data_color)
         elif plot_data and i == 1:
             ax.errorbar(data['x1'], data['y'], yerr=data['y_error_sigma'],

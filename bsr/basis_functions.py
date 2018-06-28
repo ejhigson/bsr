@@ -5,6 +5,44 @@ import inspect
 import numpy as np
 
 
+def sigmoid_func(y):
+    """Sigmoid activation function."""
+    return 1. / (1. + np.exp(-y))
+
+
+def sum_basis_funcs(basis_func, args_iterable, nfunc, x1, **kwargs):
+    """Sum up some basis functions."""
+    x2 = kwargs.pop('x2', None)
+    global_bias = kwargs.pop('global_bias', basis_func.__name__[:2] == 'nn')
+    sigmoid = kwargs.pop('sigmoid', basis_func.__name__[:2] == 'nn')
+    adaptive = kwargs.pop('adaptive', False)
+    assert isinstance(nfunc, int), str(nfunc)
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    if adaptive:
+        sum_max = int(np.round(args_iterable[0]))
+        args_arr = args_iterable[1:]
+    else:
+        sum_max = nfunc
+        args_arr = args_iterable
+    # Deal with global bias
+    if global_bias:
+        y = args_arr[-1]
+        args_arr = args_arr[:-1]
+    else:
+        y = 0.0
+    # Sum basis functions
+    if x2 is None:
+        for i in range(sum_max):
+            y += basis_func(x1, *args_arr[i::nfunc])
+    else:
+        for i in range(sum_max):
+            y += basis_func(x1, x2, *args_arr[i::nfunc])
+    if sigmoid:
+        y = sigmoid_func(y)
+    return y
+
+
 def get_param_names(basis_func):
     """Get a list of the parameters of the bais function (excluding x
     inputs).
