@@ -32,49 +32,61 @@ def adaptive_logz(run, logw=None, nfunc=1):
         return scipy.special.logsumexp(points)
 
 
-def plot_bayes(vanilla_runs, adaptive_run, nfunc_list=None, **kwargs):
+def plot_bayes(run_list_list, nfunc_list=None, **kwargs):
     """Make a bar chart of vanilla and adaptive Bayes factors, including their
     error bars."""
     title = kwargs.pop('title', None)
     ymin = kwargs.pop('ymin', -10)
     figsize = kwargs.pop('figsize', (3, 2))
+    adaptive = kwargs.pop('adaptive',
+                          [len(run_list) == 1 for run_list in run_list_list])
+    labels = kwargs.pop('labels', [str(ad) for ad in adaptive])
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
-    # vanilla bayes
-    logzs = np.asarray([nestcheck.estimators.logz(run) for run in
-                        vanilla_runs])
-    v_bayes = logzs - logzs.max()
-    v_stds = np.asarray([nestcheck.error_analysis.run_std_bootstrap(
-        run, [nestcheck.estimators.logz], n_simulate=100)[0] for run
-                         in vanilla_runs])
-    # adaptive bayes
-    if isinstance(adaptive_run, list):
-        assert len(adaptive_run) == 1
-        adaptive_run = adaptive_run[0]
-    if nfunc_list is None:
-        samp_nfuncs = np.round(adaptive_run['theta'][:, 0]).astype(int)
-        nfunc_list = list(np.unique(samp_nfuncs))
-    funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in nfunc_list]
-    a_bayes = nestcheck.ns_run_utils.run_estimators(adaptive_run, funcs)
-    a_bayes -= a_bayes.max()
-    a_stds = nestcheck.error_analysis.run_std_bootstrap(
-        adaptive_run, funcs, n_simulate=100)
+    bayes_list = []
+    bayes_stds_list = []
+    for i, run_list in enumerate(run_list_list):
+        assert isinstance(run_list, list)
+        if not adaptive[i]:
+            # vanilla bayes
+            logzs = np.asarray([nestcheck.estimators.logz(run) for run in
+                                run_list])
+            bayes_list.append(logzs - logzs.max())
+            stds = [nestcheck.error_analysis.run_std_bootstrap(
+                run, [nestcheck.estimators.logz], n_simulate=100)[0] for
+                    run in run_list]
+            bayes_stds_list.append(stds)
+        else:
+            assert len(run_list) == 1
+            if nfunc_list is None:
+                samp_nfuncs = np.round(run_list[0]['theta'][:, 0]).astype(int)
+                nfunc_list = list(np.unique(samp_nfuncs))
+            funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in
+                     nfunc_list]
+            a_bayes = nestcheck.ns_run_utils.run_estimators(run_list[0], funcs)
+            a_bayes -= a_bayes.max()
+            bayes_list.append(a_bayes)
+            bayes_stds_list.append(nestcheck.error_analysis.run_std_bootstrap(
+                run_list[0], funcs, n_simulate=100))
     # Make the plot
+    tot_width = 0.75  # the total width of all the bars
+    bar_width = tot_width / len(bayes_list)
+    bar_centres = np.arange(len(bayes_list)) * bar_width
+    bar_centres -= (tot_width - bar_width) * 0.5
     ind = np.arange(len(nfunc_list))  # the x locations for the groups
-    width = 0.35       # the width of the bars
+    bars = []
     fig, ax = plt.subplots(figsize=figsize)
-    a_bars = ax.bar(ind - 0.5 * width, a_bayes, width, color='darkred',
-                    yerr=a_stds)
-    v_bars = ax.bar(ind + 0.5 * width, v_bayes, width, color='darkblue',
-                    yerr=v_stds)
+    for i, bayes in enumerate(bayes_list):
+        bars.append(ax.bar(ind - bar_centres[i], bayes, bar_width,  # color='darkred',
+                           yerr=bayes_stds_list[i]))
     ax.set_ylabel('Bayes Factors')
     if title is not None:
         ax.set_title(title)
     ax.set_xticks(ind)
     ax.set_xticklabels(['${}$'.format(nf) for nf in nfunc_list])
-    ax.legend((a_bars[0], v_bars[0]), ('adaptive', 'vanilla'))
+    ax.legend([ba[0] for ba in bars], labels)
     ax.set_ylim([ymin, 0])
-    return fig, (a_bayes, v_bayes, a_stds, v_stds)
+    return fig, bayes_list, bayes_stds_list
 
 
 def plot_runs(likelihood_list, run_list, **kwargs):
