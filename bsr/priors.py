@@ -235,15 +235,21 @@ class AdaptiveSortedUniform(SortedUniform):
         theta: 1d numpy array
             Physical parameter values corresponding to hypercube.
         """
-        nfunc, theta = _adaptive_transform(cube, self.nfunc_min)
-        # perform SortedUniform on the next nfunc components
-        theta[1:1 + nfunc] = SortedUniform.__call__(self, cube[1:1 + nfunc])
-        # do uniform prior on remaining components
-        if len(cube) > 1 + nfunc:
-            theta[1 + nfunc:] = (
-                self.minimum + (self.maximum - self.minimum)
-                * cube[1 + nfunc:])
-        return theta
+        try:
+            nfunc, theta = _adaptive_transform(cube, self.nfunc_min)
+            # perform SortedUniform on the next nfunc components
+            theta[1:1 + nfunc] = SortedUniform.__call__(self, cube[1:1 + nfunc])
+            # do uniform prior on remaining components
+            if len(cube) > 1 + nfunc:
+                theta[1 + nfunc:] = (
+                    self.minimum + (self.maximum - self.minimum)
+                    * cube[1 + nfunc:])
+            return theta
+        except ValueError:
+            if np.isnan(cube[0]):
+                return np.full(cube.shape, np.nan)
+            else:
+                raise
 
 
 class AdaptiveSortedExponential(SortedExponential):
@@ -278,14 +284,20 @@ class AdaptiveSortedExponential(SortedExponential):
         theta: 1d numpy array
             Physical parameter values corresponding to hypercube.
         """
-        nfunc, theta = _adaptive_transform(cube, self.nfunc_min)
-        # perform SortedExponential on the next nfunc components
-        theta[1:1 + nfunc] = SortedExponential.__call__(
-            self, cube[1:1 + nfunc])
-        # do uniform prior on remaining components
-        if len(cube) > 1 + nfunc:
-            theta[1 + nfunc:] = Exponential(self.lambd)(cube[1 + nfunc:])
-        return theta
+        try:
+            nfunc, theta = _adaptive_transform(cube, self.nfunc_min)
+            # perform SortedExponential on the next nfunc components
+            theta[1:1 + nfunc] = SortedExponential.__call__(
+                self, cube[1:1 + nfunc])
+            # do uniform prior on remaining components
+            if len(cube) > 1 + nfunc:
+                theta[1 + nfunc:] = Exponential(self.lambd)(cube[1 + nfunc:])
+            return theta
+        except ValueError:
+            if np.isnan(cube[0]):
+                return np.full(cube.shape, np.nan)
+            else:
+                raise
 
 
 class BlockPrior(object):

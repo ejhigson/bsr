@@ -132,8 +132,6 @@ def gg_1d(x, a, mu, sigma, beta):
 def gg_2d(x1, x2, a, mu1, mu2, sigma1, sigma2, beta1, beta2, omega):
     """2d generalised gaussian"""
     # Rotate gen gaussian around the mean
-    assert omega < 0.25 * np.pi and omega > -0.25 * np.pi, \
-        "Angle=" + str(omega) + "must be in range +-pi/4=" + str(np.pi / 4)
     x1_new = x1 - mu1
     x2_new = x2 - mu2
     x1_new = np.cos(omega) * x1_new - np.sin(omega) * x2_new
