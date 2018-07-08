@@ -35,12 +35,12 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
     assert func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d'], (
         'not yet set up for {}'.format(func.__name__))
     nfunc_min = kwargs.pop('nfunc_min', 1)
-    global_bias = kwargs.pop(  # default True if ta, False otherwise
-        'global_bias', func.__name__[:2] == 'ta')
+    global_bias = kwargs.pop('global_bias', False)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     # specify default priors
     if func.__name__ in ['gg_1d', 'gg_2d']:
+        assert not global_bias
         priors_dict = {'a':     SortedExponential(2.0),
                        'mu':    Uniform(0, 1.0),
                        'sigma': Exponential(2.0),
@@ -48,7 +48,6 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
         if adaptive:
             priors_dict['a'] = AdaptiveSortedExponential(
                 nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
-        assert not global_bias
         if func.__name__ == 'gg_2d':
             for param in ['mu', 'sigma', 'beta']:
                 priors_dict[param + '1'] = priors_dict[param]
@@ -56,11 +55,11 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
                 del priors_dict[param]  # To make error if accidentally used
             priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
     elif func.__name__ in ['ta_1d', 'ta_2d']:
+        assert not global_bias
         priors_dict = {'a':           SortedExponential(0.5),
                        'w_0':         Gaussian(10.0),
                        'w_1':         Gaussian(10.0),
-                       'w_2':         Gaussian(10.0),
-                       'global_bias': Gaussian(10.0)}
+                       'w_2':         Gaussian(10.0)}
         if adaptive:
             priors_dict['a'] = AdaptiveSortedExponential(
                 nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
@@ -238,7 +237,8 @@ class AdaptiveSortedUniform(SortedUniform):
         try:
             nfunc, theta = _adaptive_transform(cube, self.nfunc_min)
             # perform SortedUniform on the next nfunc components
-            theta[1:1 + nfunc] = SortedUniform.__call__(self, cube[1:1 + nfunc])
+            theta[1:1 + nfunc] = SortedUniform.__call__(self,
+                                                        cube[1:1 + nfunc])
             # do uniform prior on remaining components
             if len(cube) > 1 + nfunc:
                 theta[1 + nfunc:] = (

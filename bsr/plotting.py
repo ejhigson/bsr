@@ -77,7 +77,7 @@ def plot_bayes(run_list_list, nfunc_list=None, **kwargs):
     bars = []
     fig, ax = plt.subplots(figsize=figsize)
     for i, bayes in enumerate(bayes_list):
-        bars.append(ax.bar(ind - bar_centres[i], bayes, bar_width,  # color='darkred',
+        bars.append(ax.bar(ind - bar_centres[i], bayes, bar_width,
                            yerr=bayes_stds_list[i]))
     ax.set_ylabel('Bayes Factors')
     if title is not None:
