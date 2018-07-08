@@ -45,12 +45,20 @@ class BasisFuncFit(object):
             'Not yet set up to deal with x errors in 2d')
         self.basis_func = basis_func
         self.nfunc = nfunc
-        self.nargs = len(bf.get_bf_param_names(basis_func))
-        self.ndim = self.nfunc * self.nargs
+        self.ndim = self.nfunc * len(bf.get_bf_param_names(basis_func))
         if self.global_bias:
             self.ndim += 1
         if self.adaptive:
             self.ndim += 1
+
+    def fit(self, theta, x1, x2=None):
+        """
+        Fit the data using the model and parameters theta.
+        """
+        # Deal with adaptive nfunc specification
+        return bf.sum_basis_funcs(
+            self.basis_func, theta, self.nfunc, x1, x2=x2,
+            global_bias=self.global_bias, adaptive=self.adaptive)
 
     def get_param_names(self):
         """Get list of parameter names as str."""
@@ -68,8 +76,8 @@ class BasisFuncFit(object):
 
     def get_param_latex_names(self):
         """Get list of parameter names as str."""
-        bf_params = bf.get_bf_param_latex_names(
-            self.basis_func)
+        bf_params = bf.get_param_latex_names(
+            bf.get_bf_param_names(self.basis_func))
         param_names = []
         for param in bf_params:
             assert param[-1] == '$'
@@ -89,7 +97,7 @@ class BasisFuncFit(object):
     @staticmethod
     def log_gaussian_given_r(r, sigma, n_dim=1):
         """
-        Returns the natural log of a normalised,  uncorrelated gaussian with
+        Returns the natural log of a normalised, uncorrelated gaussian with
         equal variance in all n_dim dimensions.
         """
         logl = -0.5 * ((r ** 2) / (sigma ** 2))
@@ -117,15 +125,6 @@ class BasisFuncFit(object):
         root_name += '_' + str(num_repeats) + 'reps'
         root_name += '_dg' + str(dynamic_goal)
         return root_name.replace('.', '_')
-
-    def fit(self, theta, x1, x2=None):
-        """
-        Fit the data using the model and parameters theta.
-        """
-        # Deal with adaptive nfunc specification
-        return bf.sum_basis_funcs(
-            self.basis_func, theta, self.nfunc, x1, x2=x2,
-            global_bias=self.global_bias, adaptive=self.adaptive)
 
     def fit_fgivenx(self, x1, theta):
         """Wrapper for correct arg order for fgivenx."""

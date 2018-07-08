@@ -9,8 +9,6 @@ def nn_evaluate(x, params, nodes, **kwargs):
     """Get output from a neural network."""
     act_func = kwargs.pop('act_func', np.tanh)
     out_act_func = kwargs.pop('out_act_func', bf.sigmoid_func)
-    if isinstance(nodes, int):
-        nodes = [nodes]
     assert isinstance(nodes, list), 'nodes={} is not list'.format(nodes)
     inputs = np.atleast_2d(x).T
     n_nodes = [inputs.shape[0]] + nodes
@@ -24,6 +22,32 @@ def nn_evaluate(x, params, nodes, **kwargs):
             inputs = act_func(inputs)
     assert inputs.shape == (1, 1)
     return inputs[0, 0]
+
+
+def get_nn_param_names(n_nodes):
+    """get names for the neural network parameters."""
+    assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)
+    param_names = ['a_{}'.format(i) for i in range(n_nodes[-1] + 1)]
+    for layer, n_node_layer in enumerate(n_nodes[:-1]):
+        for i_from in range(n_node_layer + 1):
+            for i_too in range(n_nodes[layer + 1]):
+                param_names.append('w_{}_{}_{}'.format(i_from, i_too, layer))
+    assert len(param_names) == nn_num_params(n_nodes), param_names
+    return param_names
+
+
+def get_nn_param_latex_names(n_nodes):
+    """get names for the neural network parameters."""
+    assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)
+    param_names = ['a_{}'.format(i) for i in range(n_nodes[-1] + 1)]
+    for layer, n_node_layer in enumerate(n_nodes[:-1]):
+        for i_from in range(n_node_layer + 1):
+            for i_too in range(n_nodes[layer + 1]):
+                param_names.append('$w_{{{},{}}}^{{[{}]}}$'.format(
+                    i_from, i_too, layer))
+    assert len(param_names) == nn_num_params(n_nodes), param_names
+    return param_names
+
 
 
 def prop_layer(inputs, w_arr, bias):

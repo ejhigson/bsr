@@ -103,16 +103,16 @@ def get_bf_param_names(basis_func):
     return param_names
 
 
-def get_bf_param_latex_names(basis_func):
+def get_param_latex_names(param_names):
     """Get a list of the parameters of LaTeX names for the params.
 
     Parameters
     ----------
-    basis_func: function
+    param_names: list of strs
 
     Returns
     -------
-    param_names: list of strs
+    latex_names: list of strs
     """
     latex_map = {'mu': r'\mu',
                  'mu1': r'\mu_{1}',
@@ -124,7 +124,6 @@ def get_bf_param_latex_names(basis_func):
                  'beta1': r'\beta_{1}',
                  'beta2': r'\beta_{2}',
                  'omega': r'\Omega'}
-    param_names = get_bf_param_names(basis_func)
     latex_names = []
     for param in param_names:
         try:
