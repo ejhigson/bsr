@@ -64,7 +64,7 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
             priors_dict['a'] = AdaptiveSortedExponential(
                 nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
     # Get a list of the priors we want
-    args = bsr.basis_functions.get_param_names(func)
+    args = bsr.basis_functions.get_bf_param_names(func)
     prior_blocks = [priors_dict[arg] for arg in args]
     block_sizes = [nfunc] * len(args)
     if adaptive:

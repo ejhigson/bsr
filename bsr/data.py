@@ -179,7 +179,7 @@ def get_data_args(data_func, nfuncs):
         raise AssertionError('no data args found! func={} nfuncs={}'.format(
             data_func.__name__, nfuncs))
     data_args_list = []
-    for name in bf.get_param_names(data_func):
+    for name in bf.get_bf_param_names(data_func):
         data_args_list += [d[name] for d in data_args]
     if data_func.__name__[:2] == 'ta':
         data_args_list.append(const)

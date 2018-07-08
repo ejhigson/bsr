@@ -45,34 +45,32 @@ class BasisFuncFit(object):
             'Not yet set up to deal with x errors in 2d')
         self.basis_func = basis_func
         self.nfunc = nfunc
-        self.nargs = len(bf.get_param_names(basis_func))
+        self.nargs = len(bf.get_bf_param_names(basis_func))
         self.ndim = self.nfunc * self.nargs
-        if self.adaptive:
-            self.ndim += 1
         if self.global_bias:
+            self.ndim += 1
+        if self.adaptive:
             self.ndim += 1
 
     def get_param_names(self):
         """Get list of parameter names as str."""
-        bf_params = bf.get_param_names(self.basis_func)
+        bf_params = bf.get_bf_param_names(self.basis_func)
         param_names = []
-        if self.adaptive:
-            param_names.append('B')
         for param in bf_params:
             for i in range(self.nfunc):
                 param_names.append('{0}_{1}'.format(param, i + 1))
         if self.global_bias:
-            param_names.append('C')
+            param_names = ['a_0'] + param_names
+        if self.adaptive:
+            param_names = ['B'] + param_names
         assert len(param_names) == self.ndim
         return param_names
 
     def get_param_latex_names(self):
         """Get list of parameter names as str."""
-        bf_params = bf.get_param_latex_names(
+        bf_params = bf.get_bf_param_latex_names(
             self.basis_func)
         param_names = []
-        if self.adaptive:
-            param_names.append('$B$')
         for param in bf_params:
             assert param[-1] == '$'
             if param[-2] == '}':
@@ -82,7 +80,9 @@ class BasisFuncFit(object):
                 for i in range(self.nfunc):
                     param_names.append('{0}_{1}$'.format(param[:-1], i + 1))
         if self.global_bias:
-            param_names.append('$C$')
+            param_names = ['$a_0$'] + param_names
+        if self.adaptive:
+            param_names = ['$B$'] + param_names
         assert len(param_names) == self.ndim
         return param_names
 

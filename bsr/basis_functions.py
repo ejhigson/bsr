@@ -27,8 +27,8 @@ def sum_basis_funcs(basis_func, args_iterable, nfunc, x1, **kwargs):
         args_arr = args_iterable
     # Deal with global bias
     if global_bias:
-        y = args_arr[-1]
-        args_arr = args_arr[:-1]
+        y = args_arr[0]
+        args_arr = args_arr[1:]
     else:
         y = 0.0
     # Sum basis functions
@@ -43,25 +43,106 @@ def sum_basis_funcs(basis_func, args_iterable, nfunc, x1, **kwargs):
     return y
 
 
-def prop_layer(inputs, w_arr, act_func=np.tanh):
+def prop_layer(inputs, w_arr, bias):
     """Propogate a neural network layer.
+
+    outputs = dot(w_arr, inputs) + bias
 
     Parameters
     ----------
-    act_func: function
-    inputs: 1d numpy array
-    w_0: 1d numpy array
-    w_1: 2d numpy array
+    inputs: 2d numpy array of dimension (n_input, 1)
+    w_arr: 2d numpy array of dimension (n_input, n_output)
+    bias: 2d numpy array of dimension (n_input, 1)
     """
-    assert inputs.ndim == 1
-    assert w_arr.ndim == 2
-    assert w_arr.shape[1] == inputs.shape[0] + 1
-    out = np.matmul(w_arr[:, 1:], np.atleast_2d(inputs).T)
-    out = np.squeeze(out) + w_arr[:, 0]
-    return act_func(out)
+    assert inputs.ndim == 2, inputs.ndim
+    assert w_arr.ndim == 2, w_arr.ndim
+    assert bias.ndim == 2, bias.ndim
+    assert inputs.shape[1] == 1, inputs.shape
+    assert bias.shape[1] == 1, bias.shape
+    assert w_arr.shape == (bias.shape[0], inputs.shape[0]), (
+        'w_arr.shape={}, bias.shape={}, inputs.shape={}'.format(
+            w_arr.shape, bias.shape, inputs.shape))
+    out = np.matmul(w_arr, inputs) + bias
+    return out
 
 
-def get_param_names(basis_func):
+def nn_num_params(n_nodes):
+    """number of parameters a neural network needs."""
+    assert isinstance(n_nodes, list)
+    assert len(n_nodes) >= 2
+    n_param = n_nodes[-1] + 1  # number of params for final activation
+    for i, _ in enumerate(n_nodes[:-1]):
+        n_param += (n_nodes[i] + 1) * n_nodes[i + 1]
+    return n_param
+
+
+def nn_split_params(params, n_nodes):
+    """Split a 1d parameter vector into lists of the biases and weight arrays
+    for each propogation step."""
+    assert params.shape == (nn_num_params(n_nodes),), (
+        'params.shape={} - I was expecting {}'.format(
+            params.shape, nn_num_params(n_nodes)))
+    w_arr_list = []
+    bias_list = []
+    # seperately extract the weights for mapping final layer to scalar output
+    bias_final = np.atleast_2d(params[0])
+    w_arr_final = np.atleast_2d(params[1:1 + n_nodes[-1]])
+    n_par = n_nodes[-1] + 1  # counter for parameters already extracted
+    for i, _ in enumerate(n_nodes[:-1]):
+        # extract bias
+        delta = n_nodes[i + 1]
+        bias = params[n_par:n_par + delta]
+        n_par += delta
+        # reshape to 2d
+        bias = np.atleast_2d(bias).T
+        bias_list.append(bias)
+        # extract w_arr
+        delta = n_nodes[i] * n_nodes[i + 1]
+        w_arr = params[n_par:n_par + delta]
+        n_par += delta
+        # reshape to 2d
+        w_arr = w_arr.reshape((n_nodes[i + 1], n_nodes[i]), order='F')
+        w_arr_list.append(w_arr)
+    # add back in final scalar output as layer with 1 node
+    w_arr_list.append(w_arr_final)
+    bias_list.append(bias_final)
+    assert (n_par,) == params.shape, (
+        'np={}, whereas params.shape={}'.format(np, params.shape))
+    return w_arr_list, bias_list
+
+
+def nn_flatten_params(w_arr_list, bias_list):
+    """Inverse of nn_split_params."""
+    flat_list = [bias_list[-1].flatten(order='F'),
+                 w_arr_list[-1].flatten(order='F')]
+    for i, w_arr in enumerate(w_arr_list[:-1]):
+        flat_list.append(bias_list[i].flatten(order='F'))
+        flat_list.append(w_arr.flatten(order='F'))
+    return np.concatenate(flat_list)
+
+
+def nn_eval(x, params, nodes, **kwargs):
+    """Get output from a neural network."""
+    act_func = kwargs.pop('act_func', np.tanh)
+    out_act_func = kwargs.pop('out_act_func', sigmoid_func)
+    if isinstance(nodes, int):
+        nodes = [nodes]
+    assert isinstance(nodes, list), 'nodes={} is not list'.format(nodes)
+    inputs = np.atleast_2d(x).T
+    n_nodes = [inputs.shape[0]] + nodes
+    w_arr_list, bias_list = nn_split_params(params, n_nodes)
+    for i, w_arr in enumerate(w_arr_list):
+        print(i)
+        inputs = prop_layer(inputs, w_arr, bias_list[i])
+        if i == len(w_arr_list) - 1:
+            inputs = out_act_func(inputs)
+        else:
+            inputs = act_func(inputs)
+    assert inputs.shape == (1, 1)
+    return inputs[0, 0]
+
+
+def get_bf_param_names(basis_func):
     """Get a list of the parameters of the bais function (excluding x
     inputs).
 
@@ -73,6 +154,7 @@ def get_param_names(basis_func):
     -------
     param_names: list of strs
     """
+    assert basis_func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d']
     param_names = list(inspect.signature(basis_func).parameters)
     for par in ['x', 'x1', 'x2']:
         try:
@@ -82,7 +164,7 @@ def get_param_names(basis_func):
     return param_names
 
 
-def get_param_latex_names(basis_func):
+def get_bf_param_latex_names(basis_func):
     """Get a list of the parameters of LaTeX names for the params.
 
     Parameters
@@ -103,7 +185,7 @@ def get_param_latex_names(basis_func):
                  'beta1': r'\beta_{1}',
                  'beta2': r'\beta_{2}',
                  'omega': r'\Omega'}
-    param_names = get_param_names(basis_func)
+    param_names = get_bf_param_names(basis_func)
     latex_names = []
     for param in param_names:
         try:
