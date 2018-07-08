@@ -26,13 +26,14 @@ import warnings
 import numpy as np
 import scipy.special
 import bsr.basis_functions as bf
+import bsr.neural_networks as nn
 
 
 class BasisFuncFit(object):
 
     """Loglikelihood for fitting a sum of basis functions to the data."""
 
-    def __init__(self, data, basis_func, nfunc, **kwargs):
+    def __init__(self, data, function, nfunc, **kwargs):
         """
         Set up likelihood object's hyperparameter values.
         """
@@ -43,9 +44,17 @@ class BasisFuncFit(object):
         self.data = data
         assert data['x_error_sigma'] is None or data['x2'] is None, (
             'Not yet set up to deal with x errors in 2d')
-        self.basis_func = basis_func
+        self.function = function
         self.nfunc = nfunc
-        self.ndim = self.nfunc * len(bf.get_bf_param_names(basis_func))
+        if self.function.__name__ == 'nn_fit':
+            assert not self.global_bias
+            assert not self.adaptive
+            assert isinstance(self.nfunc, list)
+            data_ndim = 1 if data['x2'] is None else 2
+            self.n_nodes = [data_ndim] + self.nfunc
+            self.ndim = nn.nn_num_params(self.n_nodes)
+        else:
+            self.ndim = self.nfunc * len(bf.get_bf_param_names(function))
         if self.global_bias:
             self.ndim += 1
         if self.adaptive:
@@ -55,44 +64,78 @@ class BasisFuncFit(object):
         """
         Fit the data using the model and parameters theta.
         """
-        # Deal with adaptive nfunc specification
-        return bf.sum_basis_funcs(
-            self.basis_func, theta, self.nfunc, x1, x2=x2,
-            global_bias=self.global_bias, adaptive=self.adaptive)
+        if self.function.__name__ == 'nn_fit':
+            if x2 is None:
+                x = x1
+            else:
+                x = np.asarray([x1, x2])
+            return self.function(x, theta, self.nfunc)
+        else:
+            return bf.sum_basis_funcs(
+                self.function, theta, self.nfunc, x1, x2=x2,
+                global_bias=self.global_bias, adaptive=self.adaptive)
 
     def get_param_names(self):
         """Get list of parameter names as str."""
-        bf_params = bf.get_bf_param_names(self.basis_func)
-        param_names = []
-        for param in bf_params:
-            for i in range(self.nfunc):
-                param_names.append('{0}_{1}'.format(param, i + 1))
-        if self.global_bias:
-            param_names = ['a_0'] + param_names
-        if self.adaptive:
-            param_names = ['B'] + param_names
-        assert len(param_names) == self.ndim
-        return param_names
+        if self.function.__name__ == 'nn_fit':
+            return nn.get_nn_param_names(self.n_nodes)
+        else:
+            bf_params = bf.get_bf_param_names(self.function)
+            param_names = []
+            for param in bf_params:
+                for i in range(self.nfunc):
+                    param_names.append('{0}_{1}'.format(param, i + 1))
+            if self.global_bias:
+                param_names = ['a_0'] + param_names
+            if self.adaptive:
+                param_names = ['B'] + param_names
+            assert len(param_names) == self.ndim
+            return param_names
 
     def get_param_latex_names(self):
         """Get list of parameter names as str."""
-        bf_params = bf.get_param_latex_names(
-            bf.get_bf_param_names(self.basis_func))
-        param_names = []
-        for param in bf_params:
-            assert param[-1] == '$'
-            if param[-2] == '}':
-                for i in range(self.nfunc):
-                    param_names.append(param[:-2] + ',' + str(i + 1) + '}$')
-            else:
-                for i in range(self.nfunc):
-                    param_names.append('{0}_{1}$'.format(param[:-1], i + 1))
-        if self.global_bias:
-            param_names = ['$a_0$'] + param_names
+        if self.function.__name__ == 'nn_fit':
+            return nn.get_nn_param_latex_names(self.n_nodes)
+        else:
+            bf_params = bf.get_param_latex_names(
+                bf.get_bf_param_names(self.function))
+            param_names = []
+            for param in bf_params:
+                assert param[-1] == '$'
+                if param[-2] == '}':
+                    for i in range(self.nfunc):
+                        param_names.append(
+                            param[:-2] + ',' + str(i + 1) + '}$')
+                else:
+                    for i in range(self.nfunc):
+                        param_names.append('{0}_{1}$'.format(
+                            param[:-1], i + 1))
+            if self.global_bias:
+                param_names = ['$a_0$'] + param_names
+            if self.adaptive:
+                param_names = ['$B$'] + param_names
+            assert len(param_names) == self.ndim
+            return param_names
+
+    def get_file_root(self, nlive, num_repeats, dynamic_goal=None):
+        """Get a standard string for save names."""
         if self.adaptive:
-            param_names = ['$B$'] + param_names
-        assert len(param_names) == self.ndim
-        return param_names
+            method = 'adaptive'
+        else:
+            method = 'vanilla'
+        root_name = self.data['data_name'] + '_' + method
+        root_name += '_' + self.function.__name__
+        if self.function.__name__ == 'nn_fit':
+            assert isinstance(self.nfunc, list)
+            root_name += '_'
+            root_name += (str(self.nfunc).replace('[', '').replace(']', '')
+                          .replace(',', '').replace(' ', '_'))
+        else:
+            root_name += '_' + str(self.nfunc) + 'funcs'
+        root_name += '_' + str(nlive) + 'nlive'
+        root_name += '_' + str(num_repeats) + 'reps'
+        root_name += '_dg' + str(dynamic_goal)
+        return root_name.replace('.', '_')
 
     @staticmethod
     def log_gaussian_given_r(r, sigma, n_dim=1):
@@ -111,20 +154,6 @@ class BasisFuncFit(object):
         expo = ((xj - X) / self.data['x_error_sigma']) ** 2
         expo += ((yj - Y) / self.data['y_error_sigma']) ** 2
         return np.exp(-0.5 * expo)
-
-    def get_file_root(self, nlive, num_repeats, dynamic_goal=None):
-        """Get a standard string for save names."""
-        if self.adaptive:
-            method = 'adaptive'
-        else:
-            method = 'vanilla'
-        root_name = self.data['data_name'] + '_' + method
-        root_name += '_' + self.basis_func.__name__
-        root_name += '_' + str(self.nfunc) + 'funcs'
-        root_name += '_' + str(nlive) + 'nlive'
-        root_name += '_' + str(num_repeats) + 'reps'
-        root_name += '_dg' + str(dynamic_goal)
-        return root_name.replace('.', '_')
 
     def fit_fgivenx(self, x1, theta):
         """Wrapper for correct arg order for fgivenx."""

@@ -5,7 +5,7 @@ import numpy as np
 import bsr.basis_functions as bf
 
 
-def nn_evaluate(x, params, nodes, **kwargs):
+def nn_fit(x, params, nodes, **kwargs):
     """Get output from a neural network."""
     act_func = kwargs.pop('act_func', np.tanh)
     out_act_func = kwargs.pop('out_act_func', bf.sigmoid_func)
@@ -14,7 +14,6 @@ def nn_evaluate(x, params, nodes, **kwargs):
     n_nodes = [inputs.shape[0]] + nodes
     w_arr_list, bias_list = nn_split_params(params, n_nodes)
     for i, w_arr in enumerate(w_arr_list):
-        print(i)
         inputs = prop_layer(inputs, w_arr, bias_list[i])
         if i == len(w_arr_list) - 1:
             inputs = out_act_func(inputs)
@@ -30,7 +29,7 @@ def get_nn_param_names(n_nodes):
     param_names = ['a_{}'.format(i) for i in range(n_nodes[-1] + 1)]
     for layer, n_node_layer in enumerate(n_nodes[:-1]):
         for i_from in range(n_node_layer + 1):
-            for i_too in range(n_nodes[layer + 1]):
+            for i_too in range(1, n_nodes[layer + 1] + 1):
                 param_names.append('w_{}_{}_{}'.format(i_from, i_too, layer))
     assert len(param_names) == nn_num_params(n_nodes), param_names
     return param_names
@@ -42,12 +41,11 @@ def get_nn_param_latex_names(n_nodes):
     param_names = ['a_{}'.format(i) for i in range(n_nodes[-1] + 1)]
     for layer, n_node_layer in enumerate(n_nodes[:-1]):
         for i_from in range(n_node_layer + 1):
-            for i_too in range(n_nodes[layer + 1]):
+            for i_too in range(1, n_nodes[layer + 1] + 1):
                 param_names.append('$w_{{{},{}}}^{{[{}]}}$'.format(
                     i_from, i_too, layer))
     assert len(param_names) == nn_num_params(n_nodes), param_names
     return param_names
-
 
 
 def prop_layer(inputs, w_arr, bias):
