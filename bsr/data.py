@@ -140,7 +140,7 @@ def get_data_args(data_func, nfuncs):
             data_args = [{'a': 0.2, 'mu': 0.4, 'sigma': 0.6, 'beta': 5.0},
                          {'a': 0.35, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0},
                          {'a': 0.55, 'mu': 0.32, 'sigma': 0.14, 'beta': 6.0}]
-    elif data_func.__name__ == 'nn_1d':
+    elif data_func.__name__ == 'ta_1d':
         # if nfuncs == 1:
         #     data_args = [{'a': 2, 'w_0': -2, 'w_1': 4.0}]
         #     const = 0
@@ -181,6 +181,6 @@ def get_data_args(data_func, nfuncs):
     data_args_list = []
     for name in bf.get_param_names(data_func):
         data_args_list += [d[name] for d in data_args]
-    if data_func.__name__[:2] == 'nn':
+    if data_func.__name__[:2] == 'ta':
         data_args_list.append(const)
     return data_args_list

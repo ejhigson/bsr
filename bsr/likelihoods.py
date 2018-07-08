@@ -37,8 +37,7 @@ class BasisFuncFit(object):
         Set up likelihood object's hyperparameter values.
         """
         self.adaptive = kwargs.pop('adaptive', False)
-        self.global_bias = kwargs.pop(  # default True if nn, False otherwise
-            'global_bias', basis_func.__name__[:2] == 'nn')
+        self.global_bias = kwargs.pop('global_bias', False)
         if kwargs:
             raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
         self.data = data
@@ -202,6 +201,11 @@ class BasisFuncFit(object):
             X = np.linspace(self.data['x1min'], self.data['x1max'], 1000)
             Y = self.fit(theta, X)
             for ind, y_ind in np.ndenumerate(self.data['y']):
-                logl += np.log(scipy.integrate.simps(
-                    self.integrand(X, Y, self.data['x1'][ind], y_ind), x=X))
+                contribution = scipy.integrate.simps(
+                    self.integrand(X, Y, self.data['x1'][ind], y_ind), x=X)
+                if contribution == 0:
+                    logl = -np.inf
+                    break
+                else:
+                    logl += np.log(contribution)
         return logl, []

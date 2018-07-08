@@ -305,13 +305,10 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
         if plot_data and i == 0:
             if data['nfuncs'] != 1:
                 for nf in range(data['nfuncs']):
-                    if data['func'].__name__[:2] == 'nn':
-                        comp = data['func'](
-                            x, *data['args'][:-1][nf::data['nfuncs']])
-                    else:
+                    if data['func'].__name__[:2] != 'nn':
                         comp = data['func'](
                             x, *data['args'][nf::data['nfuncs']])
-                    ax.plot(x, comp, color=data_color, linestyle=':')
+                        ax.plot(x, comp, color=data_color, linestyle=':')
             y_true = bf.sum_basis_funcs(
                 data['func'], np.asarray(copy.deepcopy(data['args'])),
                 data['nfuncs'], x)

@@ -13,8 +13,8 @@ def sigmoid_func(y):
 def sum_basis_funcs(basis_func, args_iterable, nfunc, x1, **kwargs):
     """Sum up some basis functions."""
     x2 = kwargs.pop('x2', None)
-    global_bias = kwargs.pop('global_bias', basis_func.__name__[:2] == 'nn')
-    sigmoid = kwargs.pop('sigmoid', basis_func.__name__ == 'nn_2d')
+    global_bias = kwargs.pop('global_bias', basis_func.__name__[:2] == 'ta')
+    sigmoid = kwargs.pop('sigmoid', False)
     adaptive = kwargs.pop('adaptive', False)
     assert isinstance(nfunc, int), str(nfunc)
     if kwargs:
@@ -141,11 +141,11 @@ def gg_2d(x1, x2, a, mu1, mu2, sigma1, sigma2, beta1, beta2, omega):
             * gg_1d(x2_new, 1.0, 0, sigma2, beta2))
 
 
-def nn_1d(x, a, w_0, w_1):
-    """1d neural network tanh."""
+def ta_1d(x, a, w_0, w_1):
+    """1d tanh function."""
     return a * np.tanh(w_0 + (w_1 * x))
 
 
-def nn_2d(x1, x2, a, w_0, w_1, w_2):
-    """2d neural network tanh."""
+def ta_2d(x1, x2, a, w_0, w_1, w_2):
+    """2d tanh function."""
     return a * np.tanh((w_1 * x1) + (w_2 * x2) + w_0)

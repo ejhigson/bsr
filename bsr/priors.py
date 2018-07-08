@@ -32,11 +32,11 @@ import bsr.basis_functions
 
 def get_default_prior(func, nfunc, adaptive=False, **kwargs):
     """Construct a default set of priors for the basis function."""
-    assert func.__name__ in ['gg_1d', 'gg_2d', 'nn_1d', 'nn_2d'], (
+    assert func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d'], (
         'not yet set up for {}'.format(func.__name__))
     nfunc_min = kwargs.pop('nfunc_min', 1)
-    global_bias = kwargs.pop(  # default True if nn, False otherwise
-        'global_bias', func.__name__[:2] == 'nn')
+    global_bias = kwargs.pop(  # default True if ta, False otherwise
+        'global_bias', func.__name__[:2] == 'ta')
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     # specify default priors
@@ -55,7 +55,7 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
                 priors_dict[param + '2'] = priors_dict[param]
                 del priors_dict[param]  # To make error if accidentally used
             priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
-    elif func.__name__ in ['nn_1d', 'nn_2d']:
+    elif func.__name__ in ['ta_1d', 'ta_2d']:
         priors_dict = {'a':           SortedExponential(0.5),
                        'w_0':         Gaussian(10.0),
                        'w_1':         Gaussian(10.0),
