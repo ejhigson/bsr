@@ -27,7 +27,8 @@ functions).
 """
 import numpy as np
 import scipy
-import bsr.basis_functions
+import bsr.basis_functions as bf
+import bsr.neural_networks as nn
 
 
 def get_default_prior(func, nfunc, adaptive=False, **kwargs):
@@ -38,40 +39,42 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
     global_bias = kwargs.pop('global_bias', False)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    assert not global_bias
     # specify default priors
-    if func.__name__ in ['gg_1d', 'gg_2d']:
-        assert not global_bias
-        priors_dict = {'a':     SortedExponential(2.0),
-                       'mu':    Uniform(0, 1.0),
-                       'sigma': Exponential(2.0),
-                       'beta':  Exponential(0.5)}
+    if func.__name__ == 'nn_fit':
+        assert not adaptive
+        assert isinstance(nfunc, list)
+        prior_blocks = [Gaussian(10.0)]
+        block_sizes = [nn.nn_num_params(nfunc)]
+    else:
+        if func.__name__ in ['gg_1d', 'gg_2d']:
+            priors_dict = {'a':     SortedExponential(2.0),
+                           'mu':    Uniform(0, 1.0),
+                           'sigma': Exponential(2.0),
+                           'beta':  Exponential(0.5)}
+            if adaptive:
+                priors_dict['a'] = AdaptiveSortedExponential(
+                    nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
+            if func.__name__ == 'gg_2d':
+                for param in ['mu', 'sigma', 'beta']:
+                    priors_dict[param + '1'] = priors_dict[param]
+                    priors_dict[param + '2'] = priors_dict[param]
+                    del priors_dict[param]  # Causes error if accidentally used
+                priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
+        elif func.__name__ in ['ta_1d', 'ta_2d']:
+            priors_dict = {'a':           SortedExponential(0.5),
+                           'w_0':         Gaussian(10.0),
+                           'w_1':         Gaussian(10.0),
+                           'w_2':         Gaussian(10.0)}
+            if adaptive:
+                priors_dict['a'] = AdaptiveSortedExponential(
+                    nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
+        # Get a list of the priors we want
+        args = bf.get_bf_param_names(func)
+        prior_blocks = [priors_dict[arg] for arg in args]
+        block_sizes = [nfunc] * len(args)
         if adaptive:
-            priors_dict['a'] = AdaptiveSortedExponential(
-                nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
-        if func.__name__ == 'gg_2d':
-            for param in ['mu', 'sigma', 'beta']:
-                priors_dict[param + '1'] = priors_dict[param]
-                priors_dict[param + '2'] = priors_dict[param]
-                del priors_dict[param]  # To make error if accidentally used
-            priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
-    elif func.__name__ in ['ta_1d', 'ta_2d']:
-        assert not global_bias
-        priors_dict = {'a':           SortedExponential(0.5),
-                       'w_0':         Gaussian(10.0),
-                       'w_1':         Gaussian(10.0),
-                       'w_2':         Gaussian(10.0)}
-        if adaptive:
-            priors_dict['a'] = AdaptiveSortedExponential(
-                nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
-    # Get a list of the priors we want
-    args = bsr.basis_functions.get_bf_param_names(func)
-    prior_blocks = [priors_dict[arg] for arg in args]
-    block_sizes = [nfunc] * len(args)
-    if adaptive:
-        block_sizes[0] += 1
-    if global_bias:
-        prior_blocks.append(priors_dict['global_bias'])
-        block_sizes.append(1)
+            block_sizes[0] += 1
     return BlockPrior(prior_blocks, block_sizes)
 
 
