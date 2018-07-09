@@ -29,7 +29,7 @@ import bsr.basis_functions as bf
 import bsr.neural_networks as nn
 
 
-class BasisFuncFit(object):
+class FittingLikelihood(object):
 
     """Loglikelihood for fitting a sum of basis functions to the data."""
 

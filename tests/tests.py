@@ -10,6 +10,7 @@ import bsr.basis_functions as bf
 import bsr.neural_networks as nn
 import bsr.priors
 import bsr.data
+import bsr.likelihoods
 
 
 class TestBasisFunctions(unittest.TestCase):
@@ -282,6 +283,47 @@ class TestPriors(unittest.TestCase):
         np.random.set_state(state)
 
 
+class TestLikelihoods(unittest.TestCase):
+
+    """Tests for the likelihoods.py module."""
+
+    def test_nn_ta_fit(self):
+        """Check the neural network fitting function's output values, including
+        against sums of tanh basis functions."""
+        state = np.random.get_state()  # save initial random state
+        # 1d input and 1 hidden layer
+        # ---------------------------
+        np.random.seed(1)
+        nodes = [3]
+        x = np.random.random()
+        data = bsr.data.generate_data(bf.gg_1d, 1, 0.1)
+        ta_likelihood = bsr.likelihoods.FittingLikelihood(
+            data, bf.ta_1d, nodes[0])
+        nn_likelihood = bsr.likelihoods.FittingLikelihood(
+            data, nn.nn_fit, nodes)
+        n_params = nn.nn_num_params([1] + nodes)
+        theta = np.random.random(n_params)
+        theta[0] = 0  # Correct for global bias (not present in ta)
+        out_ta = bf.sigmoid_func(ta_likelihood.fit(theta[1:], x))
+        out_nn = nn_likelihood.fit(theta, x)
+        self.assertAlmostEqual(out_ta, out_nn)
+        # # 2d input and 1 hidden layer
+        # # ---------------------------
+        # np.random.seed(2)
+        # nodes = [3]
+        # x = np.random.random(2)
+        # n_params = nn.nn_num_params([2] + nodes)
+        # self.assertEqual(n_params, 13)
+        # theta = np.random.random(n_params)
+        # out_nn = nn.nn_fit(x, theta, nodes)
+        # self.assertAlmostEqual(0.7594362318597511, out_nn)
+        # # Check vs tanh basis function sum (should be equivalent)
+        # out_bf = bf.sum_basis_funcs(
+        #     bf.ta_2d, theta, nodes[0], x[0], x2=x[1], global_bias=True,
+        #     sigmoid=True, adaptive=False)
+        # self.assertAlmostEqual(out_bf, out_nn)
+        # return to original random state
+        np.random.set_state(state)
 
 
 if __name__ == '__main__':
