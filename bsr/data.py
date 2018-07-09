@@ -15,6 +15,7 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
     x2min = kwargs.pop('x2min', 0.0)
     x2max = kwargs.pop('x2max', 1.0)
     seed = kwargs.pop('seed', 0)
+    file_dir = kwargs.pop('file_dir', 'images/')
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     if x_error_sigma == 0:
@@ -26,15 +27,14 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
     data['x1min'] = x1min
     data['x1max'] = x1max
     data['func'] = data_func
-    if isinstance(data_func, str):
-        data['func_name'] = data_func
-    else:
-        data['func_name'] = data_func.__name__
+    data['func_name'] = data_func.__name__
     if data['func_name'][-2:] == '1d':
         if npoints is None:
             npoints = 100
         data['x1'] = (np.random.random(npoints) * (x1max - x1min)) + x1min
         data['x2'] = None
+        data['x2min'] = None
+        data['x2max'] = None
         data['x_error_sigma'] = x_error_sigma
     elif data['func_name'][-2:] == '2d' or data['func_name'] == 'get_image':
         if npoints is None:
@@ -47,12 +47,13 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
         assert x_error_sigma is None
         data['x_error_sigma'] = None  # always None in 2d
     if data['func_name'] == 'get_image':
-        data['y'], _, _ = get_image(data_type, npoints)
-        data['image_file'] = data_type
+        data['y'] = get_image(data_type, npoints, file_dir=file_dir)
+        data['args'] = None
+        data['data_type'] = data_type
     else:
         data_func_args = get_data_args(data_func, data_type)
         data['args'] = copy.deepcopy(data_func_args)
-        data['nfuncs'] = data_type
+        data['data_type'] = data_type
         data['y'] = bf.sum_basis_funcs(
             data_func, data_func_args, data_type, data['x1'],
             x2=data['x2'], adaptive=False)
@@ -67,6 +68,8 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
         data['x1_no_noise'] = copy.deepcopy(data['x1'])
         data['x1'] += (data['x_error_sigma'] *
                        np.random.normal(size=data['x1'].shape))
+    else:
+        data['x1_no_noise'] = copy.deepcopy(data['x1'])
     np.random.set_state(state)  # Reset random state
     return data
 
@@ -89,9 +92,10 @@ def make_grid(x1_points, **kwargs):
     return x1_grid, x2_grid
 
 
-def get_image(filename, side_size, file_dir='images/'):
+def get_image(data_type, side_size, file_dir='images/'):
     """Load image from file into array format."""
-    image_filename = filename + '_' + str(side_size) + 'x' + str(side_size)
+    assert isinstance(data_type, int)
+    filename = 'xdf_crop_{}.jpeg'.format(data_type)
     # open image and resize it
     size = (side_size, side_size)
     im_fullsize = Image.open(file_dir + filename)
@@ -106,22 +110,17 @@ def get_image(filename, side_size, file_dir='images/'):
     for (x, y), _ in np.ndenumerate(pixels):
         pixels[x, y] = im.getpixel((x, y))
     pixels *= 1.0 / 256
-    return pixels, pixels_fullsize, image_filename
+    return pixels
 
 
 def get_data_name(data_func, data_type, npoints, y_error_sigma, x_error_sigma):
     """Standard string describing data for save names."""
-    if isinstance(data_func, str):
-        data_func_name = data_func
-    else:
-        data_func_name = data_func.__name__
-    if data_func_name == 'get_image':
-        data_name = data_type
-    else:
-        data_name = data_func_name + '_' + str(data_type) + 'funcs'
-    data_name += '_' + str(npoints) + 'pts_' + str(y_error_sigma) + 'ye'
+    data_name = '{}_{}'.format(data_func.__name__, data_type)
+    if data_func.__name__ != 'get_image':
+        data_name += 'funcs'
+    data_name += '_{}pts_{}ye'.format(npoints, y_error_sigma)
     if x_error_sigma is not None:
-        data_name += '_' + str(x_error_sigma) + 'xe'
+        data_name += '_{}xe'.format(x_error_sigma)
     return data_name.replace('.', '_')
 
 

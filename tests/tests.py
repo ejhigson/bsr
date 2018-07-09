@@ -2,14 +2,14 @@
 """
 Test suite for the bsr package.
 """
-# import os
-# import shutil
-# import warnings
 import unittest
 import numpy as np
 import numpy.testing
+import scipy.special
 import bsr.basis_functions as bf
 import bsr.neural_networks as nn
+import bsr.priors
+import bsr.data
 
 
 class TestBasisFunctions(unittest.TestCase):
@@ -153,6 +153,135 @@ class TestNeuralNetworks(unittest.TestCase):
         self.assertEqual(len(w_arr_list), len(bias_list))
         theta_flat = nn.nn_flatten_params(w_arr_list, bias_list)
         numpy.testing.assert_array_equal(theta, theta_flat)
+
+
+class TestData(unittest.TestCase):
+
+    """Tests for the data.py module."""
+
+    def test_generate_data(self):
+        """Check data generated is consistent."""
+        data_func = bf.gg_1d
+        data_type = 1
+        y_error_sigma = 0.05
+        x_error_sigma = 0.05
+        keys = ['x1',
+                'x1_no_noise',
+                'x1min',
+                'x1max',
+                'x2',
+                'x2min',
+                'x2max',
+                'y',
+                'y_no_noise',
+                'data_name',
+                'func_name',
+                'x_error_sigma',
+                'data_type',
+                'func',
+                'x1_no_noise',
+                'args',
+                'random_seed',
+                'y_error_sigma']
+        data = bsr.data.generate_data(data_func, data_type, y_error_sigma,
+                                      x_error_sigma=x_error_sigma)
+        self.assertEqual(set(data.keys()), set(keys))
+        # try with image
+        y_error_sigma = 0.05
+        x_error_sigma = None
+        data_func = bsr.data.get_image
+        data_type = 2
+        data = bsr.data.generate_data(data_func, data_type, y_error_sigma,
+                                      x_error_sigma=x_error_sigma,
+                                      file_dir='tests/')
+        self.assertEqual(set(data.keys()), set(keys))
+
+
+class TestPriors(unittest.TestCase):
+
+    """Tests for the priors.py module."""
+
+    @staticmethod
+    def test_uniform():
+        """Check uniform prior."""
+        prior_scale = 5
+        hypercube = np.random.random(5)
+        theta_prior = bsr.priors.Uniform(-prior_scale, prior_scale)(hypercube)
+        theta_check = (hypercube * 2 * prior_scale) - prior_scale
+        numpy.testing.assert_allclose(theta_prior, theta_check)
+
+    @staticmethod
+    def test_gaussian():
+        """Check spherically symmetric Gaussian prior centred on the origin."""
+        prior_scale = 5
+        hypercube = np.random.random(5)
+        theta_prior = bsr.priors.Gaussian(prior_scale)(hypercube)
+        theta_check = (scipy.special.erfinv(hypercube * 2 - 1) *
+                       prior_scale * np.sqrt(2))
+        numpy.testing.assert_allclose(theta_prior, theta_check)
+
+    @staticmethod
+    def test_exponential():
+        """Check the exponential prior."""
+        prior_scale = 5
+        hypercube = np.random.random(5)
+        theta_prior = bsr.priors.Exponential(prior_scale)(hypercube)
+        theta_check = -np.log(1 - hypercube) / prior_scale
+        numpy.testing.assert_allclose(theta_prior, theta_check)
+
+    @staticmethod
+    def test_forced_identifiability():
+        """Check the forced identifiability (forced ordering) transform.
+        Note that the PolyChord paper contains a typo in the formulae."""
+        n = 5
+        hypercube = np.random.random(n)
+        theta_func = bsr.priors.forced_identifiability_transform(
+            hypercube)
+
+        def forced_ident_transform(x):
+            """PyPolyChord version of the forced identifiability transform.
+            Note that the PolyChord paper contains a typo, but this equation
+            is correct."""
+            n = len(x)
+            theta = numpy.zeros(n)
+            theta[n - 1] = x[n - 1] ** (1. / n)
+            for i in range(n - 2, -1, -1):
+                theta[i] = x[i] ** (1. / (i + 1)) * theta[i + 1]
+            return theta
+
+        theta_check = forced_ident_transform(hypercube)
+        numpy.testing.assert_allclose(theta_func, theta_check)
+
+    @staticmethod
+    def test_default_priors():
+        """Check the numerical values from the default prior."""
+        # save initial random state
+        state = np.random.get_state()
+        np.random.seed(0)
+        # Test gg_2d prior
+        nfunc = 2
+        func = bf.gg_2d
+        prior = bsr.priors.get_default_prior(func, nfunc, adaptive=True)
+        cube = np.random.random(sum(prior.block_sizes))
+        expected = np.array([
+            1.597627, 0.40513, 0.7489, 0.544883, 0.423655, 0.645894,
+            0.437587, 1.111762, 1.657456, 0.241801, 0.784448, 1.505348,
+            1.678866, 5.196508, 0.147371, -0.648536, -0.753639])
+        numpy.testing.assert_allclose(prior(cube), expected,
+                                      rtol=1e-06, atol=1e-06)
+        # Test nn prior
+        n_nodes = [2, 3]
+        np.random.seed(0)
+        cube = np.random.random(nn.nn_num_params(n_nodes))
+        prior = bsr.priors.get_default_prior(
+            nn.nn_fit, n_nodes, adaptive=False)
+        expected = bsr.priors.Gaussian(10)(cube)
+        numpy.testing.assert_allclose(prior(cube), expected,
+                                      rtol=1e-06, atol=1e-06)
+        # return to original random state
+        np.random.set_state(state)
+
+
 
 
 if __name__ == '__main__':

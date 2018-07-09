@@ -33,8 +33,6 @@ import bsr.neural_networks as nn
 
 def get_default_prior(func, nfunc, adaptive=False, **kwargs):
     """Construct a default set of priors for the basis function."""
-    assert func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d'], (
-        'not yet set up for {}'.format(func.__name__))
     nfunc_min = kwargs.pop('nfunc_min', 1)
     global_bias = kwargs.pop('global_bias', False)
     if kwargs:
@@ -46,7 +44,7 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
         assert isinstance(nfunc, list)
         prior_blocks = [Gaussian(10.0)]
         block_sizes = [nn.nn_num_params(nfunc)]
-    else:
+    elif func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d']:
         if func.__name__ in ['gg_1d', 'gg_2d']:
             priors_dict = {'a':     SortedExponential(2.0),
                            'mu':    Uniform(0, 1.0),
@@ -75,6 +73,8 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
         block_sizes = [nfunc] * len(args)
         if adaptive:
             block_sizes[0] += 1
+    else:
+        raise AssertionError('not yet set up for {}'.format(func.__name__))
     return BlockPrior(prior_blocks, block_sizes)
 
 
@@ -179,7 +179,7 @@ class Exponential(object):
         theta: 1d numpy array
             Physical parameter values corresponding to hypercube.
         """
-        return - np.log(hypercube) / self.lambd
+        return - np.log(1 - hypercube) / self.lambd
 
 
 class SortedUniform(Uniform):
@@ -188,7 +188,7 @@ class SortedUniform(Uniform):
 
     def __call__(self, cube):
         """See Uniform.__call__ docstring."""
-        ordered = _forced_indentifiability_transform(cube)
+        ordered = forced_identifiability_transform(cube)
         return super(SortedUniform, self).__call__(ordered)
 
 
@@ -199,7 +199,7 @@ class SortedExponential(Exponential):
 
     def __call__(self, cube):
         """See Exponential.__call__ docstring."""
-        ordered = _forced_indentifiability_transform(cube)
+        ordered = forced_identifiability_transform(cube)
         return super(SortedExponential, self).__call__(ordered)
 
 
@@ -343,9 +343,9 @@ class BlockPrior(object):
 # ----------------
 
 
-def _forced_indentifiability_transform(cube):
-    """Transform hypercube coordinates to enforce identifiability. See the
-    PolyChord paper for more details.
+def forced_identifiability_transform(cube):
+    """Transform hypercube coordinates to enforce identifiability.
+    Note that the formula in the MNRAS PolyChord paper (2015) contains a typo.
 
     Parameters
     ----------
