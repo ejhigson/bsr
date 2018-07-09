@@ -5,13 +5,16 @@ import numpy as np
 import bsr.basis_functions as bf
 
 
-def nn_fit(x, params, nodes, **kwargs):
+def nn_fit(x, params, n_nodes, **kwargs):
     """Get output from a neural network."""
     act_func = kwargs.pop('act_func', np.tanh)
     out_act_func = kwargs.pop('out_act_func', bf.sigmoid_func)
-    assert isinstance(nodes, list), 'nodes={} is not list'.format(nodes)
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     inputs = np.atleast_2d(x).T
-    n_nodes = [inputs.shape[0]] + nodes
+    assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)
+    assert len(n_nodes) >= 2, n_nodes
+    assert n_nodes[0] == inputs.shape[0]
     w_arr_list, bias_list = nn_split_params(params, n_nodes)
     for i, w_arr in enumerate(w_arr_list):
         inputs = prop_layer(inputs, w_arr, bias_list[i])

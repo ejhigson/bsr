@@ -160,8 +160,10 @@ def get_data_args(data_func, nfuncs):
         if nfuncs == 1:
             data_args = [{'a': 0.7,
                           'mu1': 0.7, 'mu2': 0.6,
-                          'sigma1': 0.1, 'sigma2': 0.1,
-                          'beta1': 4, 'beta2': 0.5,
+                          # 'sigma1': 0.1, 'sigma2': 0.1,
+                          # 'beta1': 4, 'beta2': 0.5,
+                          'sigma1': 0.2, 'sigma2': 0.2,
+                          'beta1': 2, 'beta2': 2,
                           'omega': 0.15 * np.pi}]
         elif nfuncs == 2:
             data_args = [{'a': 0.3,

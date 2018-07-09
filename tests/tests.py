@@ -89,52 +89,52 @@ class TestNeuralNetworks(unittest.TestCase):
         # 1d input and 1 hidden layer
         # ---------------------------
         np.random.seed(1)
-        nodes = [3]
-        x = np.random.random()
-        n_params = nn.nn_num_params([1] + nodes)
+        n_nodes = [1, 3]
+        x = np.random.random(n_nodes[0])
+        n_params = nn.nn_num_params(n_nodes)
         self.assertEqual(n_params, 10)
         theta = np.random.random(n_params)
-        out_nn = nn.nn_fit(x, theta, nodes)
+        out_nn = nn.nn_fit(x, theta, n_nodes)
         self.assertAlmostEqual(0.712630649588386, out_nn)
         # Check vs tanh basis function sum (should be equivalent)
         out_bf = bf.sum_basis_funcs(
-            bf.ta_1d, theta, nodes[0], x, x2=None, global_bias=True,
+            bf.ta_1d, theta, n_nodes[1], x, x2=None, global_bias=True,
             sigmoid=True, adaptive=False)
         self.assertAlmostEqual(out_bf, out_nn)
         # 2d input and 1 hidden layer
         # ---------------------------
         np.random.seed(2)
-        nodes = [3]
-        x = np.random.random(2)
-        n_params = nn.nn_num_params([2] + nodes)
+        n_nodes = [2, 3]
+        x = np.random.random(n_nodes[0])
+        n_params = nn.nn_num_params(n_nodes)
         self.assertEqual(n_params, 13)
         theta = np.random.random(n_params)
-        out_nn = nn.nn_fit(x, theta, nodes)
+        out_nn = nn.nn_fit(x, theta, n_nodes)
         self.assertAlmostEqual(0.7594362318597511, out_nn)
         # Check vs tanh basis function sum (should be equivalent)
         out_bf = bf.sum_basis_funcs(
-            bf.ta_2d, theta, nodes[0], x[0], x2=x[1], global_bias=True,
+            bf.ta_2d, theta, n_nodes[1], x[0], x2=x[1], global_bias=True,
             sigmoid=True, adaptive=False)
         self.assertAlmostEqual(out_bf, out_nn)
         # 2d input and 2 hidden layers
         # ----------------------------
         np.random.seed(22)
-        nodes = [3, 4]
-        x = np.random.random(2)
-        n_params = nn.nn_num_params([2] + nodes)
+        n_nodes = [2, 3, 4]
+        x = np.random.random(n_nodes[0])
+        n_params = nn.nn_num_params(n_nodes)
         self.assertEqual(n_params, 30)
         theta = np.random.random(n_params)
-        out_nn = nn.nn_fit(x, theta, nodes)
+        out_nn = nn.nn_fit(x, theta, n_nodes)
         self.assertAlmostEqual(0.8798621458937803, out_nn)
         # 4d input and 4 hidden layers
         # ----------------------------
         np.random.seed(44)
-        nodes = [3, 4, 5, 2]
-        x = np.random.random(4)
-        n_params = nn.nn_num_params([4] + nodes)
+        n_nodes = [4, 3, 4, 5, 2]
+        x = np.random.random(n_nodes[0])
+        n_params = nn.nn_num_params(n_nodes)
         self.assertEqual(n_params, 71)
         theta = np.random.random(n_params)
-        out_nn = nn.nn_fit(x, theta, nodes)
+        out_nn = nn.nn_fit(x, theta, n_nodes)
         self.assertAlmostEqual(0.7952126284097402, out_nn)
         np.random.set_state(state)  # return to original random state
 
@@ -294,14 +294,14 @@ class TestLikelihoods(unittest.TestCase):
         # 1d input and 1 hidden layer
         # ---------------------------
         np.random.seed(1)
-        nodes = [3]
-        x = np.random.random()
+        n_nodes = [1, 3]
+        x = np.random.random(n_nodes[0])
         data = bsr.data.generate_data(bf.gg_1d, 1, 0.05, x_error_sigma=0.05)
         ta_likelihood = bsr.likelihoods.FittingLikelihood(
-            data, bf.ta_1d, nodes[0])
+            data, bf.ta_1d, n_nodes[1])
         nn_likelihood = bsr.likelihoods.FittingLikelihood(
-            data, nn.nn_fit, nodes)
-        n_params = nn.nn_num_params([1] + nodes)
+            data, nn.nn_fit, n_nodes)
+        n_params = nn.nn_num_params(n_nodes)
         theta = np.random.random(n_params)
         theta[0] = 0  # Correct for global bias (not present in ta)
         out_ta = bf.sigmoid_func(ta_likelihood.fit(theta[1:], x))
@@ -317,14 +317,14 @@ class TestLikelihoods(unittest.TestCase):
                 assert name_nn == names_ta[i] + '_0'
         # 2d input and 1 hidden layer
         # ---------------------------
-        nodes = [3]
-        x = np.random.random(2)
+        n_nodes = [2, 3]
+        x = np.random.random(n_nodes[0])
         data = bsr.data.generate_data(bf.gg_2d, 1, 0.1)
         ta_likelihood = bsr.likelihoods.FittingLikelihood(
-            data, bf.ta_2d, nodes[0])
+            data, bf.ta_2d, n_nodes[1])
         nn_likelihood = bsr.likelihoods.FittingLikelihood(
-            data, nn.nn_fit, nodes)
-        n_params = nn.nn_num_params([2] + nodes)
+            data, nn.nn_fit, n_nodes)
+        n_params = nn.nn_num_params(n_nodes)
         theta = np.random.random(n_params)
         theta[0] = 0  # Correct for global bias (not present in ta)
         out_ta = bf.sigmoid_func(ta_likelihood.fit(theta[1:], x[0], x2=x[1]))

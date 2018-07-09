@@ -50,9 +50,12 @@ class FittingLikelihood(object):
             assert not self.global_bias
             assert not self.adaptive
             assert isinstance(self.nfunc, list)
-            data_ndim = 1 if data['x2'] is None else 2
-            self.n_nodes = [data_ndim] + self.nfunc
-            self.ndim = nn.nn_num_params(self.n_nodes)
+            assert len(nfunc) >= 2, nfunc
+            if data['x2'] is None:
+                assert nfunc[0] == 1
+            else:
+                assert nfunc[0] == 2
+            self.ndim = nn.nn_num_params(self.nfunc)
         else:
             self.ndim = self.nfunc * len(bf.get_bf_param_names(function))
         if self.global_bias:
@@ -78,7 +81,7 @@ class FittingLikelihood(object):
     def get_param_names(self):
         """Get list of parameter names as str."""
         if self.function.__name__ == 'nn_fit':
-            return nn.get_nn_param_names(self.n_nodes)
+            return nn.get_nn_param_names(self.nfunc)
         else:
             bf_params = bf.get_bf_param_names(self.function)
             param_names = []
@@ -95,7 +98,7 @@ class FittingLikelihood(object):
     def get_param_latex_names(self):
         """Get list of parameter names as str."""
         if self.function.__name__ == 'nn_fit':
-            return nn.get_nn_param_latex_names(self.n_nodes)
+            return nn.get_nn_param_latex_names(self.nfunc)
         else:
             bf_params = bf.get_param_latex_names(
                 bf.get_bf_param_names(self.function))
