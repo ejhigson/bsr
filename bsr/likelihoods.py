@@ -137,24 +137,6 @@ class FittingLikelihood(object):
         root_name += '_dg' + str(dynamic_goal)
         return root_name.replace('.', '_')
 
-    @staticmethod
-    def log_gaussian_given_r(r, sigma, n_dim=1):
-        """
-        Returns the natural log of a normalised, uncorrelated gaussian with
-        equal variance in all n_dim dimensions.
-        """
-        logl = -0.5 * ((r ** 2) / (sigma ** 2))
-        # normalise
-        logl -= n_dim * np.log(sigma)
-        logl -= np.log(2 * np.pi) * (n_dim / 2.0)
-        return logl
-
-    def integrand(self, X, Y, xj, yj):
-        """Helper function for integrating."""
-        expo = ((xj - X) / self.data['x_error_sigma']) ** 2
-        expo += ((yj - Y) / self.data['y_error_sigma']) ** 2
-        return np.exp(-0.5 * expo)
-
     def fit_fgivenx(self, x1, theta):
         """Wrapper for correct arg order for fgivenx."""
         return self.fit(theta, x1)
@@ -189,6 +171,12 @@ class FittingLikelihood(object):
             ys = np.apply_along_axis(self.fit, 1, theta, x1, x2)
             return np.mean(ys, axis=0)
 
+    def integrand(self, X, Y, xj, yj):
+        """Helper function for integrating."""
+        expo = ((xj - X) / self.data['x_error_sigma']) ** 2
+        expo += ((yj - Y) / self.data['y_error_sigma']) ** 2
+        return np.exp(-0.5 * expo)
+
     def __call__(self, theta):
         """
         Calculate loglikelihood(theta), as well as any derived parameters.
@@ -212,7 +200,7 @@ class FittingLikelihood(object):
         if self.data['x_error_sigma'] is None:
             # No x errors so no need to integrate
             ytheta = self.fit(theta, self.data['x1'], self.data['x2'])
-            logl = np.sum(self.log_gaussian_given_r(
+            logl = np.sum(log_gaussian_given_r(
                 abs(ytheta - self.data['y']), self.data['y_error_sigma']))
         else:
             # x errors require integration
@@ -237,3 +225,18 @@ class FittingLikelihood(object):
                 else:
                     logl += np.log(contribution)
         return logl, []
+
+
+# Helper functions
+# ----------------
+
+def log_gaussian_given_r(r, sigma, n_dim=1):
+    """
+    Returns the natural log of a normalised, uncorrelated gaussian with
+    equal variance in all n_dim dimensions.
+    """
+    logl = -0.5 * ((r ** 2) / (sigma ** 2))
+    # normalise
+    logl -= n_dim * np.log(sigma)
+    logl -= np.log(2 * np.pi) * (n_dim / 2.0)
+    return logl

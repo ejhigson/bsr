@@ -296,7 +296,7 @@ class TestLikelihoods(unittest.TestCase):
         np.random.seed(1)
         nodes = [3]
         x = np.random.random()
-        data = bsr.data.generate_data(bf.gg_1d, 1, 0.1)
+        data = bsr.data.generate_data(bf.gg_1d, 1, 0.05, x_error_sigma=0.05)
         ta_likelihood = bsr.likelihoods.FittingLikelihood(
             data, bf.ta_1d, nodes[0])
         nn_likelihood = bsr.likelihoods.FittingLikelihood(
@@ -307,21 +307,37 @@ class TestLikelihoods(unittest.TestCase):
         out_ta = bf.sigmoid_func(ta_likelihood.fit(theta[1:], x))
         out_nn = nn_likelihood.fit(theta, x)
         self.assertAlmostEqual(out_ta, out_nn)
-        # # 2d input and 1 hidden layer
-        # # ---------------------------
-        # np.random.seed(2)
-        # nodes = [3]
-        # x = np.random.random(2)
-        # n_params = nn.nn_num_params([2] + nodes)
-        # self.assertEqual(n_params, 13)
-        # theta = np.random.random(n_params)
-        # out_nn = nn.nn_fit(x, theta, nodes)
-        # self.assertAlmostEqual(0.7594362318597511, out_nn)
-        # # Check vs tanh basis function sum (should be equivalent)
-        # out_bf = bf.sum_basis_funcs(
-        #     bf.ta_2d, theta, nodes[0], x[0], x2=x[1], global_bias=True,
-        #     sigmoid=True, adaptive=False)
-        # self.assertAlmostEqual(out_bf, out_nn)
+        # check names
+        names_ta = ta_likelihood.get_param_names()
+        names_nn = nn_likelihood.get_param_names()
+        for i, name_nn in enumerate(names_nn[1:]):
+            if name_nn[0] == 'a':
+                assert name_nn == names_ta[i]
+            else:
+                assert name_nn == names_ta[i] + '_0'
+        # 2d input and 1 hidden layer
+        # ---------------------------
+        nodes = [3]
+        x = np.random.random(2)
+        data = bsr.data.generate_data(bf.gg_2d, 1, 0.1)
+        ta_likelihood = bsr.likelihoods.FittingLikelihood(
+            data, bf.ta_2d, nodes[0])
+        nn_likelihood = bsr.likelihoods.FittingLikelihood(
+            data, nn.nn_fit, nodes)
+        n_params = nn.nn_num_params([2] + nodes)
+        theta = np.random.random(n_params)
+        theta[0] = 0  # Correct for global bias (not present in ta)
+        out_ta = bf.sigmoid_func(ta_likelihood.fit(theta[1:], x[0], x2=x[1]))
+        out_nn = nn_likelihood.fit(theta, x)
+        self.assertAlmostEqual(out_ta, out_nn)
+        # check names
+        names_ta = ta_likelihood.get_param_names()
+        names_nn = nn_likelihood.get_param_names()
+        for i, name_nn in enumerate(names_nn[1:]):
+            if name_nn[0] == 'a':
+                assert name_nn == names_ta[i]
+            else:
+                assert name_nn == names_ta[i] + '_0'
         # return to original random state
         np.random.set_state(state)
 
