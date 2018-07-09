@@ -57,7 +57,21 @@ def prop_layer(inputs, w_arr, bias):
     ----------
     inputs: 2d numpy array of dimension (n_input, 1)
     w_arr: 2d numpy array of dimension (n_input, n_output)
-    bias: 2d numpy array of dimension (n_input, 1)
+    bias: 2d numpy array of dimension (n_output, 1)
+    """
+    check_dimensions(inputs, w_arr, bias)
+    return np.matmul(w_arr, inputs) + bias
+
+
+def check_dimensions(inputs, w_arr, bias):
+    """Check the parameters for a neural network propogation step all have the
+    correct dimensions.
+
+    Parameters
+    ----------
+    inputs: 2d numpy array of dimension (n_input, 1)
+    w_arr: 2d numpy array of dimension (n_input, n_output)
+    bias: 2d numpy array of dimension (n_output, 1)
     """
     assert inputs.ndim == 2, inputs.ndim
     assert w_arr.ndim == 2, w_arr.ndim
@@ -67,8 +81,6 @@ def prop_layer(inputs, w_arr, bias):
     assert w_arr.shape == (bias.shape[0], inputs.shape[0]), (
         'w_arr.shape={}, bias.shape={}, inputs.shape={}'.format(
             w_arr.shape, bias.shape, inputs.shape))
-    out = np.matmul(w_arr, inputs) + bias
-    return out
 
 
 def nn_num_params(n_nodes):

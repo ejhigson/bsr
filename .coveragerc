@@ -1,0 +1,3 @@
+[report]
+show_missing = True
+exclude_lines = raise TypeError
