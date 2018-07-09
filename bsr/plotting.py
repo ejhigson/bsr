@@ -103,7 +103,6 @@ def plot_runs(likelihood_list, run_list, **kwargs):
             likelihood_list, kwargs.get('plot_data', False),
             kwargs.get('combine', True))
     if len(likelihood_list) >= 1:
-        assert likelihood_list[0].basis_func.__name__[-2:] in ['1d', '2d']
         for like in likelihood_list[1:]:
             assert like.data == likelihood_list[0].data
         kwargs['data'] = likelihood_list[0].data
@@ -462,13 +461,12 @@ def plot_prior(likelihood, nsamples):
     """Plots the default prior for the likelihood object's
     parameters."""
     prior = bsr.priors.get_default_prior(
-        likelihood.basis_func, likelihood.nfunc, likelihood.adaptive)
+        likelihood.function, likelihood.nfunc, likelihood.adaptive)
     hypercube_samps = np.random.random((nsamples, likelihood.ndim))
     thetas = np.apply_along_axis(prior, 1, hypercube_samps)
-    assert likelihood.basis_func.__name__[-2:] in ['1d', '2d']
-    if likelihood.basis_func.__name__[-2:] == '1d':
+    if likelihood.data['x2'] is None:
         fig = plot_1d_grid(likelihood.fit_fgivenx, thetas, None)
-    elif likelihood.basis_func.__name__[-2:] == '2d':
+    else:
         y = likelihood.fit_mean(
             thetas, likelihood.data['x1'], likelihood.data['x2'])
         print('ymax={} ymean={}'.format(y.max(), np.mean(y)))

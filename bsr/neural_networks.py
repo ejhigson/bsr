@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """Neural network fitting functions."""
 
+import copy
 import numpy as np
 import bsr.basis_functions as bf
 
@@ -11,10 +12,22 @@ def nn_fit(x, params, n_nodes, **kwargs):
     out_act_func = kwargs.pop('out_act_func', bf.sigmoid_func)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
-    inputs = np.atleast_2d(x).T
     assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)
     assert len(n_nodes) >= 2, n_nodes
-    assert n_nodes[0] == inputs.shape[0]
+    if isinstance(x, (float, int)):
+        inputs = np.atleast_2d(x)
+    else:
+        assert isinstance(x, np.ndarray)
+        if x.ndim == 1:
+            # Assume this is a single example (M=1). In principle it could be M
+            # 1d examples - this will throw an assertion error as it will not
+            # have n_nodes[0] == inputs.shape[0]
+            inputs = np.atleast_2d(x).T
+        else:
+            assert x.ndim == 2, x.ndim
+            inputs = copy.deepcopy(x)
+    assert n_nodes[0] == inputs.shape[0], (
+        'inputs.shape={} n_nodes={}'.format(inputs.shape, n_nodes))
     w_arr_list, bias_list = nn_split_params(params, n_nodes)
     for i, w_arr in enumerate(w_arr_list):
         inputs = prop_layer(inputs, w_arr, bias_list[i])
@@ -22,8 +35,11 @@ def nn_fit(x, params, n_nodes, **kwargs):
             inputs = out_act_func(inputs)
         else:
             inputs = act_func(inputs)
-    assert inputs.shape == (1, 1)
-    return inputs[0, 0]
+    assert inputs.ndim == 2 and inputs.shape[0] == 1
+    if inputs.shape[1] == 1:
+        return inputs[0, 0]
+    else:
+        return inputs[0, :]
 
 
 def get_nn_param_names(n_nodes):
@@ -56,31 +72,43 @@ def prop_layer(inputs, w_arr, bias):
 
     outputs = dot(w_arr, inputs) + bias
 
+    This works for vectorised applications of M data points at once, as well as
+    for a single data point (M=1).
+
     Parameters
     ----------
-    inputs: 2d numpy array of dimension (n_input, 1)
-    w_arr: 2d numpy array of dimension (n_input, n_output)
-    bias: 2d numpy array of dimension (n_output, 1)
+    inputs: 2d numpy array of shape (n_input, M)
+    w_arr: 2d numpy array of shape (n_output, n_input)
+    bias: 2d numpy array of shape (n_output, 1)
+
+    Returns
+    -------
+    out: 2d numpy array of shape (n_output, M)
     """
-    check_dimensions(inputs, w_arr, bias)
-    return np.matmul(w_arr, inputs) + bias
+    check_shapes(inputs, w_arr, bias)
+    out = np.matmul(w_arr, inputs) + bias
+    assert out.shape == (w_arr.shape[0], inputs.shape[1]), (
+        'out.shape={}, w_arr.shape={}, inputs.shape={}'.format(
+            out.shape, w_arr.shape, inputs.shape))
+    return out
 
 
-def check_dimensions(inputs, w_arr, bias):
+def check_shapes(inputs, w_arr, bias):
     """Check the parameters for a neural network propogation step all have the
-    correct dimensions.
+    correct shapes.
+
+    This works for vectorised applications of M data points at once, as well as
+    for a single data point (M=1).
 
     Parameters
     ----------
-    inputs: 2d numpy array of dimension (n_input, 1)
-    w_arr: 2d numpy array of dimension (n_input, n_output)
-    bias: 2d numpy array of dimension (n_output, 1)
+    inputs: 2d numpy array of shape (n_input, M)
+    w_arr: 2d numpy array of shape (n_output, n_input)
+    bias: 2d numpy array of shape (n_output, 1)
     """
     assert inputs.ndim == 2, inputs.ndim
     assert w_arr.ndim == 2, w_arr.ndim
     assert bias.ndim == 2, bias.ndim
-    assert inputs.shape[1] == 1, inputs.shape
-    assert bias.shape[1] == 1, bias.shape
     assert w_arr.shape == (bias.shape[0], inputs.shape[0]), (
         'w_arr.shape={}, bias.shape={}, inputs.shape={}'.format(
             w_arr.shape, bias.shape, inputs.shape))

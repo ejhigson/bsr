@@ -328,7 +328,8 @@ class TestLikelihoods(unittest.TestCase):
         theta = np.random.random(n_params)
         theta[0] = 0  # Correct for global bias (not present in ta)
         out_ta = bf.sigmoid_func(ta_likelihood.fit(theta[1:], x[0], x2=x[1]))
-        out_nn = nn_likelihood.fit(theta, x)
+        print(x.shape, np.atleast_2d(x).T.shape)
+        out_nn = nn_likelihood.fit(theta, x[0], x2=x[1])
         self.assertAlmostEqual(out_ta, out_nn)
         # check names
         names_ta = ta_likelihood.get_param_names()

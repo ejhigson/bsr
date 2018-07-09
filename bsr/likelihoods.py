@@ -68,11 +68,29 @@ class FittingLikelihood(object):
         Fit the data using the model and parameters theta.
         """
         if self.function.__name__ == 'nn_fit':
-            if x2 is None:
-                x = x1
+            if isinstance(x1, (int, float)):
+                # This is just a single example (M=1), so we will output a
+                # scalar
+                if x2 is None:
+                    x = x1
+                else:
+                    x = np.asarray([x1, x2])
+                return self.function(x, theta, self.nfunc)
             else:
-                x = np.asarray([x1, x2])
-            return self.function(x, theta, self.nfunc)
+                # We need to reshape to array with shape (ndim, M) where M is
+                # number of data points
+                if x2 is None:
+                    assert x1.ndim == 1, x1.shape
+                    x = x1.reshape((1, x1.shape[0]))
+                    return self.function(x, theta, self.nfunc)
+                else:
+                    assert x1.shape == x2.shape
+                    x = np.zeros((2, x1.size))
+                    x[0, :] = x1.flatten(order='C')
+                    x[1, :] = x2.flatten(order='C')
+                    out = self.function(x, theta, self.nfunc)
+                    return out.reshape(x1.shape, order='C')
+
         else:
             return bf.sum_basis_funcs(
                 self.function, theta, self.nfunc, x1, x2=x2,
