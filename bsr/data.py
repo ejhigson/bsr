@@ -148,9 +148,9 @@ def get_data_args(data_func, nfuncs):
                          {'a': 0.9, 'w_0': 2, 'w_1': -3}]
         elif nfuncs == 3:
             data_args = [
-                {'a': 0.3, 'w_0': -8, 'w_1': 10},
-                {'a': 0.7, 'w_0': -1, 'w_1': 3},
-                {'a': 0.9, 'w_0': 2, 'w_1': -3}]
+                {'a': 0.6, 'w_0': -7, 'w_1': 8},
+                {'a': 1, 'w_0': -1, 'w_1': 3},
+                {'a': 1.4, 'w_0': 2, 'w_1': -3}]
     elif data_func.__name__ == 'gg_2d':
         # the order is (with first arg sorted):
         # [a_1, mu1_1, mu2_1, s1_1, s2_1, b1_1, b2_1, rot angle]
