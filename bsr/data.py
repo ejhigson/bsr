@@ -140,18 +140,17 @@ def get_data_args(data_func, nfuncs):
                          {'a': 0.35, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0},
                          {'a': 0.55, 'mu': 0.32, 'sigma': 0.14, 'beta': 6.0}]
     elif data_func.__name__ == 'ta_1d':
-        # if nfuncs == 1:
-        #     data_args = [{'a': 2, 'w_0': -2, 'w_1': 4.0}]
-        #     const = 0
-        # elif nfuncs == 2:
-        #     data_args = [{'a': -2, 'w_0': -6, 'w_1': 8.0},
-        #                  {'a': 2, 'w_0': -2, 'w_1': 8.0}]
-        #     const = -3
+        # first arg is sorted
         if nfuncs == 1:
-            data_args = [{'a': 0.4, 'w_0': -3, 'w_1': 6.0}]
+            data_args = [{'a': 0.6, 'w_0': 0, 'w_1': 3}]
         elif nfuncs == 2:
-            data_args = [{'a': 0.4, 'w_0': 4, 'w_1': -5.0},
-                         {'a': 0.2, 'w_0': -1, 'w_1': 5.0}]
+            data_args = [{'a': 0.7, 'w_0': -1, 'w_1': 3},
+                         {'a': 0.9, 'w_0': 2, 'w_1': -3}]
+        elif nfuncs == 3:
+            data_args = [
+                {'a': 0.3, 'w_0': -8, 'w_1': 10},
+                {'a': 0.7, 'w_0': -1, 'w_1': 3},
+                {'a': 0.9, 'w_0': 2, 'w_1': -3}]
     elif data_func.__name__ == 'gg_2d':
         # the order is (with first arg sorted):
         # [a_1, mu1_1, mu2_1, s1_1, s2_1, b1_1, b2_1, rot angle]
