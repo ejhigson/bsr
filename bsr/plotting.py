@@ -302,15 +302,15 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
         # If plot_data we also want to plot the true function and the
         # noisy data, and need to shift the other plots along
         if plot_data and i == 0:
-            if data['nfuncs'] != 1:
-                for nf in range(data['nfuncs']):
+            if data['data_type'] != 1:
+                for nf in range(data['data_type']):
                     if data['func'].__name__[:2] != 'nn':
                         comp = data['func'](
-                            x, *data['args'][nf::data['nfuncs']])
+                            x, *data['args'][nf::data['data_type']])
                         ax.plot(x, comp, color=data_color, linestyle=':')
             y_true = bf.sum_basis_funcs(
                 data['func'], np.asarray(copy.deepcopy(data['args'])),
-                data['nfuncs'], x)
+                data['data_type'], x)
             ax.plot(x, y_true, color=data_color)
         elif plot_data and i == 1:
             ax.errorbar(data['x1'], data['y'], yerr=data['y_error_sigma'],

@@ -176,7 +176,6 @@ class TestData(unittest.TestCase):
                 'y',
                 'y_no_noise',
                 'data_name',
-                'func_name',
                 'x_error_sigma',
                 'data_type',
                 'func',

@@ -18,8 +18,9 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
     file_dir = kwargs.pop('file_dir', 'images/')
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    assert callable(data_func)
     if x_error_sigma == 0:
-        x_error_sigma = None
+        x_error_sigma = None  # prevents needlessly doing x error integrals
     state = np.random.get_state()  # Save random state before seeding
     np.random.seed(seed)
     data = {}
@@ -27,8 +28,7 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
     data['x1min'] = x1min
     data['x1max'] = x1max
     data['func'] = data_func
-    data['func_name'] = data_func.__name__
-    if data['func_name'][-2:] == '1d':
+    if data_func.__name__[-2:] == '1d':
         if npoints is None:
             npoints = 100
         data['x1'] = (np.random.random(npoints) * (x1max - x1min)) + x1min
@@ -36,7 +36,7 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
         data['x2min'] = None
         data['x2max'] = None
         data['x_error_sigma'] = x_error_sigma
-    elif data['func_name'][-2:] == '2d' or data['func_name'] == 'get_image':
+    elif data_func.__name__[-2:] == '2d' or data_func.__name__ == 'get_image':
         if npoints is None:
             npoints = 32
         data['x1'], data['x2'] = make_grid(
@@ -46,7 +46,7 @@ def generate_data(data_func, data_type, y_error_sigma, x_error_sigma=None,
         data['x2max'] = x2max
         assert x_error_sigma is None
         data['x_error_sigma'] = None  # always None in 2d
-    if data['func_name'] == 'get_image':
+    if data_func.__name__ == 'get_image':
         data['y'] = get_image(data_type, npoints, file_dir=file_dir)
         data['args'] = None
         data['data_type'] = data_type
