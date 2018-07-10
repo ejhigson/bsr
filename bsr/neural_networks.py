@@ -57,7 +57,7 @@ def get_nn_param_names(n_nodes):
 def get_nn_param_latex_names(n_nodes):
     """get names for the neural network parameters."""
     assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)
-    param_names = ['a_{}'.format(i) for i in range(n_nodes[-1] + 1)]
+    param_names = ['$a_{}$'.format(i) for i in range(n_nodes[-1] + 1)]
     for layer, n_node_layer in enumerate(n_nodes[:-1]):
         for i_from in range(n_node_layer + 1):
             for i_too in range(1, n_nodes[layer + 1] + 1):
