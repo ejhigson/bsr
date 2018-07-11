@@ -48,7 +48,6 @@ class FittingLikelihood(object):
         self.nfunc = nfunc
         if self.function.__name__ == 'nn_fit':
             assert not self.global_bias
-            assert not self.adaptive
             assert isinstance(self.nfunc, list)
             assert len(nfunc) >= 2, nfunc
             if data['x2'] is None:

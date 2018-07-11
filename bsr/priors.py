@@ -48,6 +48,7 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
             assert len(set(nfunc[1:])) == 1, nfunc
             prior_blocks = ([Uniform(nfunc_min - 0.5, nfunc[1] + 0.5)]
                             + prior_blocks)
+            block_sizes = [1] + block_sizes
     elif func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d']:
         if func.__name__ in ['gg_1d', 'gg_2d']:
             priors_dict = {'a':     SortedExponential(2.0),
@@ -314,7 +315,9 @@ class BlockPrior(object):
 
     def __init__(self, prior_blocks, block_sizes):
         """Store prior and size of each block."""
-        assert len(prior_blocks) == len(block_sizes)
+        assert len(prior_blocks) == len(block_sizes), (
+            'len(prior_blocks)={}, len(block_sizes)={}, block_sizes={}'
+            .format(len(prior_blocks), len(block_sizes), block_sizes))
         self.prior_blocks = prior_blocks
         self.block_sizes = block_sizes
 

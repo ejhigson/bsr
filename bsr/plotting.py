@@ -25,6 +25,8 @@ def adaptive_logz(run, logw=None, nfunc=1):
     if logw is None:
         logw = nestcheck.ns_run_utils.get_logw(run)
     vals = run['theta'][:, 0]
+    if isinstance(nfunc, list):
+        nfunc = nfunc[-1]
     points = logw[((nfunc - 0.5) <= vals) & (vals < (nfunc + 0.5))]
     if points.shape == (0,):
         return -np.inf
@@ -52,9 +54,10 @@ def plot_bayes(run_list_list, nfunc_list=None, **kwargs):
             logzs = np.asarray([nestcheck.estimators.logz(run) for run in
                                 run_list])
             bayes_list.append(logzs - logzs.max())
-            stds = [nestcheck.error_analysis.run_std_bootstrap(
-                run, [nestcheck.estimators.logz], n_simulate=100)[0] for
-                    run in run_list]
+            stds = np.zeros(len(run_list))
+            for j, run in enumerate(run_list):
+                stds[j] = nestcheck.error_analysis.run_std_bootstrap(
+                    run, [nestcheck.estimators.logz], n_simulate=100)[0]
             bayes_stds_list.append(stds)
         else:
             assert len(run_list) == 1
