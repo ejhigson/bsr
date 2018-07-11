@@ -40,10 +40,14 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
     assert not global_bias
     # specify default priors
     if func.__name__ == 'nn_fit':
-        assert not adaptive
         assert isinstance(nfunc, list)
+        assert len(nfunc) >= 2
         prior_blocks = [Gaussian(10.0)]
         block_sizes = [nn.nn_num_params(nfunc)]
+        if adaptive:
+            assert len(set(nfunc[1:])) == 1, nfunc
+            prior_blocks = ([Uniform(nfunc_min - 0.5, nfunc[1] + 0.5)]
+                            + prior_blocks)
     elif func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d']:
         if func.__name__ in ['gg_1d', 'gg_2d']:
             priors_dict = {'a':     SortedExponential(2.0),
@@ -238,7 +242,7 @@ class AdaptiveSortedUniform(SortedUniform):
             Physical parameter values corresponding to hypercube.
         """
         try:
-            nfunc, theta = _adaptive_transform(cube, self.nfunc_min)
+            nfunc, theta = adaptive_transform(cube, self.nfunc_min)
             # perform SortedUniform on the next nfunc components
             theta[1:1 + nfunc] = SortedUniform.__call__(self,
                                                         cube[1:1 + nfunc])
@@ -288,7 +292,7 @@ class AdaptiveSortedExponential(SortedExponential):
             Physical parameter values corresponding to hypercube.
         """
         try:
-            nfunc, theta = _adaptive_transform(cube, self.nfunc_min)
+            nfunc, theta = adaptive_transform(cube, self.nfunc_min)
             # perform SortedExponential on the next nfunc components
             theta[1:1 + nfunc] = SortedExponential.__call__(
                 self, cube[1:1 + nfunc])
@@ -363,7 +367,7 @@ def forced_identifiability_transform(cube):
     return ordered_cube
 
 
-def _adaptive_transform(cube, nfunc_min):
+def adaptive_transform(cube, nfunc_min):
     """Extract adaptive number of functions and return theta array.
 
     Parameters

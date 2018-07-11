@@ -155,6 +155,26 @@ class TestNeuralNetworks(unittest.TestCase):
         theta_flat = nn.nn_flatten_params(w_arr_list, bias_list)
         numpy.testing.assert_array_equal(theta, theta_flat)
 
+    def test_adaptive_theta(self):
+        """Chech the adaptive_theta function for zeroing out nodes gives the
+        same answer as a vanilla neural network."""
+        # settings
+        x = np.random.random(2)
+        n_nodes_a = [2, 5, 5]
+        nfunc_max = 4
+        value = np.random.random()  # give all theta components the same value
+        # get adaptive
+        theta_a = np.full(nn.nn_num_params(n_nodes_a) + 1, value)
+        theta_a[0] = nfunc_max
+        theta_a = nn.adaptive_theta(theta_a, n_nodes_a)
+        out_a = nn.nn_fit(x, theta_a, n_nodes_a)
+        # get vanilla
+        n_nodes_v = [2] + ([nfunc_max] * len(n_nodes_a[1:]))
+        theta_v = np.full(nn.nn_num_params(n_nodes_v), value)
+        out_v = nn.nn_fit(x, theta_v, n_nodes_v)
+        print(out_v, out_a)
+        self.assertAlmostEqual(out_a, out_v)
+
 
 class TestData(unittest.TestCase):
 

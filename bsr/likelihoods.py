@@ -68,6 +68,8 @@ class FittingLikelihood(object):
         Fit the data using the model and parameters theta.
         """
         if self.function.__name__ == 'nn_fit':
+            if self.adaptive:
+                theta = nn.adaptive_theta(theta, self.nfunc)
             if isinstance(x1, (int, float)):
                 # This is just a single example (M=1), so we will output a
                 # scalar
