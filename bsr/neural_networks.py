@@ -42,6 +42,16 @@ def nn_fit(x, params, n_nodes, **kwargs):
         return inputs[0, :]
 
 
+def nn_1l(x, params, n_nodes, **kwargs):
+    """Wapper to allow specification of number of layers via function name."""
+    return nn_fit(x, params, n_nodes, **kwargs)
+
+
+def nn_2l(x, params, n_nodes, **kwargs):
+    """Wapper to allow specification of number of layers via function name."""
+    return nn_fit(x, params, n_nodes, **kwargs)
+
+
 def get_nn_param_names(n_nodes):
     """get names for the neural network parameters."""
     assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)

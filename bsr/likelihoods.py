@@ -46,7 +46,7 @@ class FittingLikelihood(object):
             'Not yet set up to deal with x errors in 2d')
         self.function = function
         self.nfunc = nfunc
-        if self.function.__name__ == 'nn_fit':
+        if self.function.__name__[:2] == 'nn':
             assert not self.global_bias
             assert isinstance(self.nfunc, list)
             assert len(nfunc) >= 2, nfunc
@@ -66,7 +66,7 @@ class FittingLikelihood(object):
         """
         Fit the data using the model and parameters theta.
         """
-        if self.function.__name__ == 'nn_fit':
+        if self.function.__name__[:2] == 'nn':
             if self.adaptive:
                 theta = nn.adaptive_theta(theta, self.nfunc)
             if isinstance(x1, (int, float)):
@@ -99,7 +99,7 @@ class FittingLikelihood(object):
 
     def get_param_names(self):
         """Get list of parameter names as str."""
-        if self.function.__name__ == 'nn_fit':
+        if self.function.__name__[:2] == 'nn':
             return nn.get_nn_param_names(self.nfunc)
         else:
             bf_params = bf.get_bf_param_names(self.function)
@@ -116,7 +116,7 @@ class FittingLikelihood(object):
 
     def get_param_latex_names(self):
         """Get list of parameter names as str."""
-        if self.function.__name__ == 'nn_fit':
+        if self.function.__name__[:2] == 'nn':
             return nn.get_nn_param_latex_names(self.nfunc)
         else:
             bf_params = bf.get_param_latex_names(
@@ -147,7 +147,7 @@ class FittingLikelihood(object):
             method = 'vanilla'
         root_name = self.data['data_name'] + '_' + method
         root_name += '_' + self.function.__name__
-        if self.function.__name__ == 'nn_fit':
+        if self.function.__name__[:2] == 'nn':
             assert isinstance(self.nfunc, list)
             root_name += '_'
             root_name += (str(self.nfunc).replace('[', '').replace(']', '')

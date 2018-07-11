@@ -39,7 +39,7 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     assert not global_bias
     # specify default priors
-    if func.__name__ == 'nn_fit':
+    if func.__name__[:2] == 'nn':
         assert isinstance(nfunc, list)
         assert len(nfunc) >= 2
         prior_blocks = [Gaussian(10.0)]
