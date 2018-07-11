@@ -34,7 +34,7 @@ def adaptive_logz(run, logw=None, nfunc=1):
         return scipy.special.logsumexp(points)
 
 
-def plot_bayes(run_list_list, nfunc_list=None, **kwargs):
+def plot_bayes(run_list_list, nfunc_list, **kwargs):
     """Make a bar chart of vanilla and adaptive Bayes factors, including their
     error bars."""
     title = kwargs.pop('title', None)
@@ -61,9 +61,6 @@ def plot_bayes(run_list_list, nfunc_list=None, **kwargs):
             bayes_stds_list.append(stds)
         else:
             assert len(run_list) == 1
-            if nfunc_list is None:
-                samp_nfuncs = np.round(run_list[0]['theta'][:, 0]).astype(int)
-                nfunc_list = list(np.unique(samp_nfuncs))
             funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in
                      nfunc_list]
             a_bayes = nestcheck.ns_run_utils.run_estimators(run_list[0], funcs)
@@ -95,6 +92,7 @@ def plot_bayes(run_list_list, nfunc_list=None, **kwargs):
 def plot_runs(likelihood_list, run_list, **kwargs):
     """Wrapper for plotting ns runs (automatically tests if they are
     1d or 2d)."""
+    nfunc_list = kwargs.pop('nfunc_list', None)
     if not isinstance(likelihood_list, list):
         likelihood_list = [likelihood_list]
     if not isinstance(run_list, list):
@@ -104,7 +102,7 @@ def plot_runs(likelihood_list, run_list, **kwargs):
     if 'titles' not in kwargs:
         kwargs['titles'] = get_default_titles(
             likelihood_list, kwargs.get('plot_data', False),
-            kwargs.get('combine', True))
+            kwargs.get('combine', True), nfunc_list)
     if len(likelihood_list) >= 1:
         for like in likelihood_list[1:]:
             assert like.data == likelihood_list[0].data
@@ -117,7 +115,8 @@ def plot_runs(likelihood_list, run_list, **kwargs):
     return fig
 
 
-def get_default_titles(likelihood_list, combine, plot_data):
+def get_default_titles(likelihood_list, combine, plot_data,
+                       nfunc_list):
     """Get some default titles for the plots."""
     titles = []
     if plot_data:
@@ -125,13 +124,15 @@ def get_default_titles(likelihood_list, combine, plot_data):
     if combine:
         titles.append('fit')
     else:
-        if len(likelihood_list) == 1 and likelihood_list[0].adaptive:
-            # As we don't know which funcs are being plotted, just assume they
-            # start with B=1 and add a longer list than we actuall need
-            titles += ['$B={}$'.format(i) for i in range(1, 12)]
-        else:
-            titles += ['$B={}$'.format(like.nfunc) for like in
-                       likelihood_list]
+        if nfunc_list is None:
+            if len(likelihood_list) == 1 and likelihood_list[0].adaptive:
+                # As we don't know which funcs are being plotted, just assume
+                # they start with B=1 and add a longer list than we actually
+                # need
+                nfunc_list = list(range(1, 12))
+            else:
+                nfunc_list = [like.nfunc for like in likelihood_list]
+        titles += ['$B={}$'.format(i) for i in nfunc_list]
     return titles
 
 
@@ -160,6 +161,7 @@ def plot_2d_runs(likelihood_list, run_list, **kwargs):
             run = run_list[0]
             samp_nfuncs = np.round(run['theta'][:, 0]).astype(int)
             nfunc_list = kwargs.pop('nfunc_list', list(np.unique(samp_nfuncs)))
+            print(nfunc_list)
             logw = nestcheck.ns_run_utils.get_logw(run)
             for nf in nfunc_list:
                 inds = np.where(samp_nfuncs == nf)[0]
