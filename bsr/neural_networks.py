@@ -67,21 +67,27 @@ def get_nn_param_names(n_nodes):
 def adaptive_theta(theta, n_nodes):
     """Return a theta vector with the nodes that are not used zeroed out."""
     assert theta.shape == (1 + nn_num_params(n_nodes),)
-    nfunc = int(np.round(int(theta[0])))
-    theta = copy.deepcopy(theta[1:])  # deepcopy needed for PolyChord
-    assert nfunc <= n_nodes[-1]
-    for node in range(nfunc, n_nodes[-1]):
-        theta[node + 1] = 0
-    if len(n_nodes) > 2:
-        assert len(set(n_nodes[1:])) == 1
-        counter = n_nodes[-1] + 1
-        for layer, n_node_layer in enumerate(n_nodes[:-1]):
-            for i_from in range(n_node_layer + 1):
-                for _ in range(1, n_nodes[layer + 1] + 1):
-                    if layer > 0 and i_from > nfunc:
-                        theta[counter] = 0
-                    counter += 1
-    return theta
+    try:
+        nfunc = int(np.round(int(theta[0])))
+        theta = copy.deepcopy(theta[1:])  # deepcopy needed for PolyChord
+        assert nfunc <= n_nodes[-1]
+        for node in range(nfunc, n_nodes[-1]):
+            theta[node + 1] = 0
+        if len(n_nodes) > 2:
+            assert len(set(n_nodes[1:])) == 1
+            counter = n_nodes[-1] + 1
+            for layer, n_node_layer in enumerate(n_nodes[:-1]):
+                for i_from in range(n_node_layer + 1):
+                    for _ in range(1, n_nodes[layer + 1] + 1):
+                        if layer > 0 and i_from > nfunc:
+                            theta[counter] = 0
+                        counter += 1
+        return theta
+    except ValueError:
+        if np.isnan(theta[0]):
+            return np.full(theta.shape[0] - 1, np.nan)
+        else:
+            raise
 
 
 def get_nn_param_latex_names(n_nodes):
