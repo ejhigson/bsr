@@ -206,6 +206,10 @@ class TestData(unittest.TestCase):
         data = bsr.data.generate_data(data_func, data_type, y_error_sigma,
                                       x_error_sigma=x_error_sigma)
         self.assertEqual(set(data.keys()), set(keys))
+        # check if x_error_sigma = 0 it is set to None
+        datax0 = bsr.data.generate_data(data_func, data_type, y_error_sigma,
+                                        x_error_sigma=0)
+        assert datax0['x_error_sigma'] is None
         # try with image
         y_error_sigma = 0.05
         x_error_sigma = None
@@ -215,6 +219,15 @@ class TestData(unittest.TestCase):
                                       x_error_sigma=x_error_sigma,
                                       file_dir='tests/')
         self.assertEqual(set(data.keys()), set(keys))
+
+    def test_get_data_args(self):
+        """Check right number of args is supplied."""
+        for data_func in [bf.gg_1d, bf.gg_2d, bf.ta_1d]:
+            for nfunc in [1, 2, 3]:
+                args = bsr.data.get_data_args(data_func, nfunc)
+                self.assertEqual(len(args),
+                                 nfunc * len(bf.get_bf_param_names(data_func)))
+        self.assertRaises(AssertionError, bsr.data.get_data_args, bf.gg_1d, 100)
 
 
 class TestPriors(unittest.TestCase):

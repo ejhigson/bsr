@@ -83,8 +83,6 @@ def make_grid(x1_points, **kwargs):
     x2max = kwargs.pop('x2max', 1.0)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
-    if x2_points is None:
-        x2_points = x1_points
     x1_setup = np.linspace(x1min, x1max, num=x1_points)
     # flip x2 order to have y increacing on plots' verticle axis
     x2_setup = np.linspace(x2min, x2max, num=x2_points)[::-1]
@@ -128,7 +126,7 @@ def get_data_name(data_func, data_type, npoints, y_error_sigma, x_error_sigma):
 # -----------
 def get_data_args(data_func, nfuncs):
     """Returns default arguments for generating data."""
-    if data_func.__name__ == 'gg_1d':
+    if data_func.__name__ == 'gg_1d' and nfuncs in [1, 2, 3]:
         # first arg is sorted
         if nfuncs == 1:
             data_args = [{'a': 0.75, 'mu': 0.4, 'sigma': 0.3, 'beta': 2.0}]
@@ -139,7 +137,7 @@ def get_data_args(data_func, nfuncs):
             data_args = [{'a': 0.2, 'mu': 0.4, 'sigma': 0.6, 'beta': 5.0},
                          {'a': 0.35, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0},
                          {'a': 0.55, 'mu': 0.32, 'sigma': 0.14, 'beta': 6.0}]
-    elif data_func.__name__ == 'ta_1d':
+    elif data_func.__name__ == 'ta_1d' and nfuncs in [1, 2, 3]:
         # first arg is sorted
         if nfuncs == 1:
             data_args = [{'a': 0.6, 'w_0': 0, 'w_1': 3}]
@@ -151,7 +149,7 @@ def get_data_args(data_func, nfuncs):
                 {'a': 0.6, 'w_0': -7, 'w_1': 8},
                 {'a': 1, 'w_0': -1, 'w_1': 3},
                 {'a': 1.4, 'w_0': 2, 'w_1': -3}]
-    elif data_func.__name__ == 'gg_2d':
+    elif data_func.__name__ == 'gg_2d' and nfuncs in [1, 2, 3]:
         # the order is (with first arg sorted):
         # [a_1, mu1_1, mu2_1, s1_1, s2_1, b1_1, b2_1, rot angle]
         if nfuncs == 1:
