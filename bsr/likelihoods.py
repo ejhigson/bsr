@@ -91,7 +91,6 @@ class FittingLikelihood(object):
                     x[1, :] = x2.flatten(order='C')
                     out = self.function(x, theta, self.nfunc)
                     return out.reshape(x1.shape, order='C')
-
         else:
             return bf.sum_basis_funcs(
                 self.function, theta, self.nfunc, x1, x2=x2,

@@ -126,7 +126,7 @@ def get_data_name(data_func, data_type, npoints, y_error_sigma, x_error_sigma):
 # -----------
 def get_data_args(data_func, nfuncs):
     """Returns default arguments for generating data."""
-    if data_func.__name__ == 'gg_1d' and nfuncs in [1, 2, 3]:
+    if data_func.__name__ == 'gg_1d':
         # first arg is sorted
         if nfuncs == 1:
             data_args = [{'a': 0.75, 'mu': 0.4, 'sigma': 0.3, 'beta': 2.0}]
@@ -137,7 +137,7 @@ def get_data_args(data_func, nfuncs):
             data_args = [{'a': 0.2, 'mu': 0.4, 'sigma': 0.6, 'beta': 5.0},
                          {'a': 0.35, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0},
                          {'a': 0.55, 'mu': 0.32, 'sigma': 0.14, 'beta': 6.0}]
-    elif data_func.__name__ == 'ta_1d' and nfuncs in [1, 2, 3]:
+    elif data_func.__name__ == 'ta_1d':
         # first arg is sorted
         if nfuncs == 1:
             data_args = [{'a': 0.6, 'w_0': 0, 'w_1': 3}]
@@ -149,7 +149,7 @@ def get_data_args(data_func, nfuncs):
                 {'a': 0.6, 'w_0': -7, 'w_1': 8},
                 {'a': 1, 'w_0': -1, 'w_1': 3},
                 {'a': 1.4, 'w_0': 2, 'w_1': -3}]
-    elif data_func.__name__ == 'gg_2d' and nfuncs in [1, 2, 3]:
+    elif data_func.__name__ == 'gg_2d':
         # the order is (with first arg sorted):
         # [a_1, mu1_1, mu2_1, s1_1, s2_1, b1_1, b2_1, rot angle]
         if nfuncs == 1:
@@ -187,12 +187,11 @@ def get_data_args(data_func, nfuncs):
                           'sigma1': 0.1, 'sigma2': 0.1,
                           'beta1': 2, 'beta2': 2,
                           'omega': 0}]
-    else:
+    try:
+        data_args_list = []
+        for name in bf.get_bf_param_names(data_func):
+            data_args_list += [d[name] for d in data_args]
+        return data_args_list
+    except NameError:
         raise AssertionError('no data args found! func={} nfuncs={}'.format(
             data_func.__name__, nfuncs))
-    data_args_list = []
-    for name in bf.get_bf_param_names(data_func):
-        data_args_list += [d[name] for d in data_args]
-    # if data_func.__name__[:2] == 'ta':
-    #     data_args_list.append(const)
-    return data_args_list

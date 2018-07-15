@@ -132,7 +132,12 @@ def get_default_titles(likelihood_list, combine, plot_data,
                 nfunc_list = list(range(1, 12))
             else:
                 nfunc_list = [like.nfunc for like in likelihood_list]
-        titles += ['$B={}$'.format(i) for i in nfunc_list]
+        for nfunc in nfunc_list:
+            if isinstance(nfunc, list):
+                # Display only the hidden layers' number of nodes
+                titles.append('${}$'.format(nfunc[1:]))
+            else:
+                titles.append('$B={}$'.format(nfunc))
     return titles
 
 

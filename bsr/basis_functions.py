@@ -14,7 +14,7 @@ def gg_1d(x, a, mu, sigma, beta):
 
     Normalisation constant
 
-    >>> const = a * beta / (2 * sigma * scipy.special.gamma(1.0 / beta))
+    >>> const = beta / (2 * sigma * scipy.special.gamma(1.0 / beta))
 
     is excluded to avoid degeneracies between sigma and a, so the maxiumum of
     the basis function = a.
