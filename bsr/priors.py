@@ -31,10 +31,11 @@ import bsr.basis_functions as bf
 import bsr.neural_networks as nn
 
 
-def get_default_prior(func, nfunc, adaptive=False, **kwargs):
+def get_default_prior(func, nfunc, **kwargs):
     """Construct a default set of priors for the basis function."""
     nfunc_min = kwargs.pop('nfunc_min', 1)
     global_bias = kwargs.pop('global_bias', False)
+    adaptive = kwargs.pop('adaptive', False)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     assert not global_bias
@@ -49,6 +50,15 @@ def get_default_prior(func, nfunc, adaptive=False, **kwargs):
             prior_blocks = ([Uniform(nfunc_min - 0.5, nfunc[1] + 0.5)]
                             + prior_blocks)
             block_sizes = [1] + block_sizes
+    elif func.__name__ == 'adfam_gg_ta_1d':
+        assert adaptive
+        # Need to explicitly provide all args rather than use **kwargs as
+        # kwargs is now empty due to poping
+        gg_prior = get_default_prior(bf.gg_1d, nfunc, global_bias=global_bias,
+                                     nfunc_min=nfunc_min, adaptive=adaptive)
+        ta_prior = get_default_prior(bf.ta_1d, nfunc, global_bias=global_bias,
+                                     nfunc_min=nfunc_min, adaptive=adaptive)
+        return AdFamPrior(gg_prior, ta_prior, nfunc)
     elif func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d']:
         if func.__name__ in ['gg_1d', 'gg_2d']:
             priors_dict = {'a':     SortedExponential(2.0),
@@ -306,6 +316,43 @@ class AdaptiveSortedExponential(SortedExponential):
                 return np.full(cube.shape, np.nan)
             else:
                 raise
+
+
+class AdFamPrior(object):
+
+    """Prior for adaptive selection between different families of basis
+    functions. First coordinate selects family, then different priors are
+    applied to the remaining coordinates depending on its value."""
+
+    def __init__(self, gg_1d_prior, ta_1d_prior, nfunc):
+        """Store the different blocks and block sizes for each family."""
+        self.gg_1d_prior = gg_1d_prior
+        self.ta_1d_prior = ta_1d_prior
+        self.nfunc = nfunc
+
+    def __call__(self, cube):
+        """
+        Map hypercube values to physical parameter values.
+
+        Parameters
+        ----------
+        hypercube: 1d numpy array
+            Point coordinate on unit hypercube (in probabily space).
+            See the PolyChord papers for more details.
+
+        Returns
+        -------
+        theta: 1d numpy array
+            Physical parameter values corresponding to hypercube.
+        """
+        theta = np.zeros(cube.shape)
+        theta[0] = Uniform(0.5, 2.5)(cube[0])
+        # Calculate gg prior even if func is ta, so parameters unused by ta
+        # are drawn from the gg prior
+        theta[1:] = self.gg_1d_prior(cube[1:])
+        if theta[0] >= 1.5:
+            theta[1:-self.nfunc] = self.ta_1d_prior(cube[1:-self.nfunc])
+        return theta
 
 
 class BlockPrior(object):

@@ -44,6 +44,17 @@ def ta_2d(x1, x2, a, w_0, w_1, w_2):
     return a * np.tanh((w_1 * x1) + (w_2 * x2) + w_0)
 
 
+def adfam_gg_ta_1d(x1, theta, nfunc, **kwargs):
+    """Adaptive family selection between ta_1d and gg_1d."""
+    assert kwargs.get('x2', None) is None
+    assert kwargs.get('adaptive')
+    assert 0.5 <= theta[0] <= 2.5, theta[0]
+    if theta[0] < 1.5:
+        return sum_basis_funcs(gg_1d, theta[1:], nfunc, x1, **kwargs)
+    else:
+        # ta_1d has 3 params (excluding x1), whereas gg_1d has 4
+        return sum_basis_funcs(ta_1d, theta[1:-nfunc], nfunc, x1, **kwargs)
+
 # Helper functions
 # ----------------
 

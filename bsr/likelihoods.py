@@ -55,6 +55,11 @@ class FittingLikelihood(object):
             else:
                 assert nfunc[0] == 2
             self.ndim = nn.nn_num_params(self.nfunc)
+        elif self.function.__name__ == 'adfam_gg_ta_1d':
+            assert self.adaptive
+            assert not self.global_bias
+            self.ndim = self.nfunc * len(bf.get_bf_param_names(bf.gg_1d))
+            self.ndim += 1  # For adaptive family parameter
         else:
             self.ndim = self.nfunc * len(bf.get_bf_param_names(function))
         if self.global_bias:
@@ -91,6 +96,10 @@ class FittingLikelihood(object):
                     x[1, :] = x2.flatten(order='C')
                     out = self.function(x, theta, self.nfunc)
                     return out.reshape(x1.shape, order='C')
+        elif self.function.__name__ == 'adfam_gg_ta_1d':
+            return self.function(
+                x1, theta, self.nfunc, x2=x2,
+                global_bias=self.global_bias, adaptive=self.adaptive)
         else:
             return bf.sum_basis_funcs(
                 self.function, theta, self.nfunc, x1, x2=x2,
@@ -101,7 +110,10 @@ class FittingLikelihood(object):
         if self.function.__name__[:2] == 'nn':
             return nn.get_nn_param_names(self.nfunc)
         else:
-            bf_params = bf.get_bf_param_names(self.function)
+            if self.function.__name__ == 'adfam_gg_ta_1d':
+                bf_params = bf.get_bf_param_names(bf.gg_1d)
+            else:
+                bf_params = bf.get_bf_param_names(self.function)
             param_names = []
             for param in bf_params:
                 for i in range(self.nfunc):
@@ -110,6 +122,8 @@ class FittingLikelihood(object):
                 param_names = ['a_0'] + param_names
             if self.adaptive:
                 param_names = ['B'] + param_names
+            if self.function.__name__ == 'adfam_gg_ta_1d':
+                param_names = ['T'] + param_names
             assert len(param_names) == self.ndim
             return param_names
 
@@ -117,6 +131,8 @@ class FittingLikelihood(object):
         """Get list of parameter names as str."""
         if self.function.__name__[:2] == 'nn':
             return nn.get_nn_param_latex_names(self.nfunc)
+        elif self.function.__name__ == 'adfam_gg_ta_1d':
+            return self.get_param_names()
         else:
             bf_params = bf.get_param_latex_names(
                 bf.get_bf_param_names(self.function))
