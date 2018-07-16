@@ -37,12 +37,15 @@ def adaptive_logz(run, logw=None, nfunc=1):
 def plot_bayes(run_list_list, nfunc_list, **kwargs):
     """Make a bar chart of vanilla and adaptive Bayes factors, including their
     error bars."""
-    title = kwargs.pop('title', None)
+    title = kwargs.pop('title', 'Bayes factors')
     ymin = kwargs.pop('ymin', -10)
+    xlabel = kwargs.pop('xlabel', 'number of basis functions $B$')
     figsize = kwargs.pop('figsize', (3, 2))
     adaptive = kwargs.pop('adaptive',
                           [len(run_list) == 1 for run_list in run_list_list])
     labels = kwargs.pop('labels', [str(ad) for ad in adaptive])
+    colors = kwargs.pop('colors', ['lightgrey', 'grey', 'black', 'darkblue',
+                                   'darkred'])
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     bayes_list = []
@@ -78,11 +81,11 @@ def plot_bayes(run_list_list, nfunc_list, **kwargs):
     fig, ax = plt.subplots(figsize=figsize)
     for i, bayes in enumerate(bayes_list):
         bars.append(ax.bar(ind - bar_centres[i], bayes, bar_width,
-                           yerr=bayes_stds_list[i]))
-    ax.set_ylabel('Bayes Factors')
+                           yerr=bayes_stds_list[i], color=colors[i]))
     if title is not None:
         ax.set_title(title)
     ax.set_xticks(ind)
+    ax.set_xlabel(xlabel)
     ax.set_xticklabels(['${}$'.format(nf) for nf in nfunc_list])
     ax.legend([ba[0] for ba in bars], labels)
     ax.set_ylim([ymin, 0])
