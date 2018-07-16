@@ -15,6 +15,7 @@ import nestcheck.ns_run_utils
 import nestcheck.error_analysis
 import bsr.priors
 import bsr.basis_functions as bf
+import run_bsr
 
 
 def adaptive_logz(run, logw=None, nfunc=1):
@@ -32,6 +33,42 @@ def adaptive_logz(run, logw=None, nfunc=1):
         return -np.inf
     else:
         return scipy.special.logsumexp(points)
+
+
+def plot_bayes_prob_dict(problem_data, **kwargs):
+    """Wrapper for Bayes factors from different methods."""
+    adfam = kwargs.pop('adfam', False)
+    run_list_list = []
+    adaptive_list = []
+    labels = []
+    if adfam:
+        nfunc_list = list(range(1, 11))
+    else:
+        nfunc_list = run_bsr.nfunc_list_union(problem_data)
+    for meth_key, meth_data in problem_data.items():
+        adaptive, dynamic_goal, _, _ = meth_key
+        run_list_list.append(meth_data['run_list'])
+        adaptive_list.append(adaptive)
+        if adfam and adaptive:
+            assert len(run_list_list[-1]) == 1
+            theta = run_list_list[-1][0]['theta']
+            # remove T column and add 5 to adaptive column when T=2
+            theta[np.where(theta[:, 0] >= 1.5), 1] += 5
+            theta = theta[:, 1:]
+            run_list_list[-1][0]['theta'] = theta
+        label = 'adaptive' if adaptive else 'vanilla'
+        if dynamic_goal is not None:
+            label += ' dg={}'.format(dynamic_goal)
+        labels.append(label)
+    fig, _, _ = bsr.plotting.plot_bayes(
+        run_list_list, nfunc_list, adaptive=adaptive_list, labels=labels,
+        **kwargs)
+    if adfam:
+        # xlabels = ([(1, i) for i in range(1, 6)]
+        #            + [(2, j) for j in range(1, 6)])
+        xlabels = [2 * list(range(1, 6))]
+        fig.axes[0].set_xticklabels(xlabels)
+    return fig
 
 
 def plot_bayes(run_list_list, nfunc_list, **kwargs):
@@ -87,8 +124,15 @@ def plot_bayes(run_list_list, nfunc_list, **kwargs):
     ax.set_xticks(ind)
     ax.set_xlabel(xlabel)
     ax.set_xticklabels(['${}$'.format(nf) for nf in nfunc_list])
+    if ymin == -10:
+        ax.set_yticks([0, -5, -10])
     ax.legend([ba[0] for ba in bars], labels)
     ax.set_ylim([ymin, 0])
+    adjust = {'top': 1 - (0.2 / figsize[1]),
+              'bottom': 0.4 / figsize[1],
+              'left': (0.3 / figsize[0]),
+              'right': 1 - (0.01 / figsize[0])}
+    fig.subplots_adjust(**adjust)
     return fig, bayes_list, bayes_stds_list
 
 
@@ -252,7 +296,7 @@ def plot_colormap(y_list, x1, x2, **kwargs):
             cax.set(aspect=colorbar_aspect)
         if titles is not None:
             ax.set_title(titles[i])
-    fig = adjust_spacing(fig, figsize, gs)
+    fig = adjust_spacing(fig, gs)
     return fig
 
 
@@ -367,26 +411,29 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):
             ax.set_xticklabels([])
         if col != 0:
             ax.set_yticklabels([])
-    fig = adjust_spacing(fig, figsize, gs)
+    fig = adjust_spacing(fig, gs)
     return fig
 
 
-def adjust_spacing(fig, figsize, gs):
+def adjust_spacing(fig, gs):
     """Adjust plotgrid position to make sure plots are square and use all
     the available space."""
+    figsize = fig.get_size_inches()
     wspace = 0.1
-    wr = gs.get_width_ratios()
-    hr = gs.get_height_ratios()
-    gs.update(wspace=wspace)
-    if len(hr) > 1:
-        gs.update(hspace=0.5)
+    if gs is not None:
+        wr = gs.get_width_ratios()
+        hr = gs.get_height_ratios()
+        gs.update(wspace=wspace)
+        if len(hr) > 1:
+            gs.update(hspace=0.5)
+    else:
+        wr = [1]
     margins = {'top': 0.2, 'bottom': 0.4, 'left': 0.45, 'right': 0.3}
     # fit squared vertically into space left after top and bottom margins
     adjust = {}
     adjust['bottom'] = margins['bottom'] / figsize[1]
     adjust['top'] = 1 - (margins['top'] / figsize[1])
     side_length = figsize[1] - (adjust['top'] - adjust['bottom'])
-    wr = gs.get_width_ratios()
     width = ((sum(wr) / max(wr)) + (len(wr) - 1) * wspace) * side_length
     space = figsize[0] - (width + margins['left'] + margins['right'])
     if space < 0:
