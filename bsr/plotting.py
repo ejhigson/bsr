@@ -66,8 +66,9 @@ def plot_bayes_prob_dict(problem_data, **kwargs):
     if adfam:
         # xlabels = ([(1, i) for i in range(1, 6)]
         #            + [(2, j) for j in range(1, 6)])
-        xlabels = [2 * list(range(1, 6))]
+        xlabels = 2 * list(range(1, 6))
         fig.axes[0].set_xticklabels(xlabels)
+        fig.axes[0].axvline(x=4.5, color='black', linestyle=':')
     return fig
 
 
@@ -76,7 +77,13 @@ def plot_bayes(run_list_list, nfunc_list, **kwargs):
     error bars."""
     title = kwargs.pop('title', 'Bayes factors')
     ymin = kwargs.pop('ymin', -10)
-    xlabel = kwargs.pop('xlabel', 'number of basis functions $B$')
+    if any(isinstance(nf, list) for nf in nfunc_list):
+        assert all(isinstance(nf, list) for nf in nfunc_list), nfunc_list
+        nfunc_list = [nf[-1] for nf in nfunc_list]
+        xlabel_default = 'nodes per hidden layer $B$'
+    else:
+        xlabel_default = 'number of basis functions $B$'
+    xlabel = kwargs.pop('xlabel', xlabel_default)
     figsize = kwargs.pop('figsize', (3, 2))
     adaptive = kwargs.pop('adaptive',
                           [len(run_list) == 1 for run_list in run_list_list])
@@ -152,7 +159,11 @@ def plot_runs(likelihood_list, run_list, **kwargs):
             kwargs.get('combine', True), nfunc_list)
     if len(likelihood_list) >= 1:
         for like in likelihood_list[1:]:
-            assert like.data == likelihood_list[0].data
+            try:
+                assert like.data == likelihood_list[0].data
+            except ValueError:
+                print('ValueError comparing data')
+                pass
         kwargs['data'] = likelihood_list[0].data
     if kwargs['data']['y'].ndim == 1:
         fig = plot_1d_runs(likelihood_list, run_list, **kwargs)
