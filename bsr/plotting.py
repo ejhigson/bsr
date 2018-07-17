@@ -68,9 +68,9 @@ def plot_bayes_prob_dict(problem_data, **kwargs):
         run_list_list, nfunc_list, adaptive=adaptive_list, labels=labels,
         **kwargs)
     if adfam:
-        # xlabels = ([(1, i) for i in range(1, 6)]
-        #            + [(2, j) for j in range(1, 6)])
-        xlabels = 2 * list(range(1, 6))
+        xlabels = ['1,{}'.format(i) for i in range(1, 6)]
+        xlabels += ['2,{}'.format(i) for i in range(1, 6)]
+        # xlabels = 2 * list(range(1, 6))
         fig.axes[0].set_xticklabels(xlabels)
         fig.axes[0].axvline(x=4.5, color='black', linestyle=':')
     return fig
