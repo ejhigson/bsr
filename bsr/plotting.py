@@ -79,7 +79,7 @@ def plot_bayes_prob_dict(problem_data, **kwargs):
 def plot_bayes(run_list_list, nfunc_list, **kwargs):
     """Make a bar chart of vanilla and adaptive Bayes factors, including their
     error bars."""
-    title = kwargs.pop('title', 'Bayes factors')
+    title = kwargs.pop('title', 'log posterior odds ratios')
     ymin = kwargs.pop('ymin', -10)
     if any(isinstance(nf, list) for nf in nfunc_list):
         assert all(isinstance(nf, list) for nf in nfunc_list), nfunc_list
