@@ -13,6 +13,7 @@ import fgivenx.plot
 import nestcheck.estimators
 import nestcheck.ns_run_utils
 import nestcheck.error_analysis
+import nestcheck.parallel_utils
 import bsr.priors
 import bsr.basis_functions as bf
 import run_bsr
@@ -94,6 +95,7 @@ def plot_bayes(run_list_list, nfunc_list, **kwargs):
     labels = kwargs.pop('labels', [str(ad) for ad in adaptive])
     colors = kwargs.pop('colors', ['lightgrey', 'grey', 'black', 'darkblue',
                                    'darkred'])
+    n_simulate = kwargs.pop('n_simulate', 5)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     bayes_list = []
@@ -105,10 +107,13 @@ def plot_bayes(run_list_list, nfunc_list, **kwargs):
             logzs = np.asarray([nestcheck.estimators.logz(run) for run in
                                 run_list])
             bayes_list.append(logzs - logzs.max())
-            stds = np.zeros(len(run_list))
-            for j, run in enumerate(run_list):
-                stds[j] = nestcheck.error_analysis.run_std_bootstrap(
-                    run, [nestcheck.estimators.logz], n_simulate=100)[0]
+            # std calculation of different runs parallelised and uses simulated
+            # weights method as it gives the correct results for logZ
+            stds = nestcheck.parallel_utils.parallel_apply(
+                nestcheck.error_analysis.run_std_simulate, run_list,
+                func_args=([nestcheck.estimators.logz],),
+                func_kwargs={'n_simulate': n_simulate})
+            stds = np.squeeze(np.asarray(stds))
             bayes_stds_list.append(stds)
         else:
             assert len(run_list) == 1
@@ -118,7 +123,7 @@ def plot_bayes(run_list_list, nfunc_list, **kwargs):
             a_bayes -= a_bayes.max()
             bayes_list.append(a_bayes)
             bayes_stds_list.append(nestcheck.error_analysis.run_std_bootstrap(
-                run_list[0], funcs, n_simulate=100))
+                run_list[0], funcs, n_simulate=n_simulate))
     # Make the plot
     tot_width = 0.75  # the total width of all the bars
     bar_width = tot_width / len(bayes_list)
@@ -167,7 +172,6 @@ def plot_runs(likelihood_list, run_list, **kwargs):
                 assert like.data == likelihood_list[0].data
             except ValueError:
                 print('ValueError comparing data')
-                pass
         kwargs['data'] = likelihood_list[0].data
     if kwargs['data']['y'].ndim == 1:
         fig = plot_1d_runs(likelihood_list, run_list, **kwargs)
@@ -536,7 +540,7 @@ def plot_prior(likelihood, nsamples):
     """Plots the default prior for the likelihood object's
     parameters."""
     prior = bsr.priors.get_default_prior(
-        likelihood.function, likelihood.nfunc, likelihood.adaptive)
+        likelihood.function, likelihood.nfunc, adaptive=likelihood.adaptive)
     hypercube_samps = np.random.random((nsamples, likelihood.ndim))
     thetas = np.apply_along_axis(prior, 1, hypercube_samps)
     if likelihood.data['x2'] is None:
