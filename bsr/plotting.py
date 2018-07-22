@@ -17,10 +17,6 @@ import nestcheck.parallel_utils
 import bsr.priors
 import bsr.basis_functions as bf
 import run_bsr
-# settings for paper
-matplotlib.rc('text', usetex=True)
-matplotlib.rc('font', family='serif', serif='Times New Roman', size=8)
-matplotlib.rc('axes', titlesize='medium')
 
 
 def adaptive_logz(run, logw=None, nfunc=1):
