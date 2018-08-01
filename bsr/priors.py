@@ -41,15 +41,17 @@ def get_default_prior(func, nfunc, **kwargs):
     assert not global_bias
     # specify default priors
     if func.__name__[:2] == 'nn':
-        assert isinstance(nfunc, list)
-        assert len(nfunc) >= 2
-        prior_blocks = [Gaussian(10.0)]
-        block_sizes = [nn.nn_num_params(nfunc)]
-        if adaptive:
-            assert len(set(nfunc[1:])) == 1, nfunc
-            prior_blocks = ([Uniform(nfunc_min - 0.5, nfunc[1] + 0.5)]
-                            + prior_blocks)
-            block_sizes = [1] + block_sizes
+        # in this case nfunc is the list of numbers of nodes
+        return NNPrior(nfunc, nfunc_min=nfunc_min, adaptive=adaptive)
+        # assert isinstance(nfunc, list)
+        # assert len(nfunc) >= 2
+        # prior_blocks = [Gaussian(10.0)]
+        # block_sizes = [nn.nn_num_params(nfunc)]
+        # if adaptive:
+        #     assert len(set(nfunc[1:])) == 1, nfunc
+        #     prior_blocks = ([Uniform(nfunc_min - 0.5, nfunc[1] + 0.5)]
+        #                     + prior_blocks)
+        #     block_sizes = [1] + block_sizes
     elif func.__name__ == 'adfam_gg_ta_1d':
         assert adaptive
         # Need to explicitly provide all args rather than use **kwargs as
@@ -84,9 +86,9 @@ def get_default_prior(func, nfunc, **kwargs):
         block_sizes = [nfunc] * len(args)
         if adaptive:
             block_sizes[0] += 1
+        return BlockPrior(prior_blocks, block_sizes)
     else:
         raise AssertionError('not yet set up for {}'.format(func.__name__))
-    return BlockPrior(prior_blocks, block_sizes)
 
 
 class BasePrior(object):
@@ -221,7 +223,7 @@ class Uniform(BasePrior):
             See BasePrior.__init__ for more infomation.
         """
         BasePrior.__init__(self, **kwargs)
-        assert maximum > minimum
+        assert maximum > minimum, (minimum, maximum)
         self.maximum = maximum
         self.minimum = minimum
 
@@ -238,6 +240,46 @@ class Uniform(BasePrior):
         theta: 1d numpy array
         """
         return self.minimum + (self.maximum - self.minimum) * cube
+
+
+class InvPow(BasePrior):
+
+    """Uniform in theta^-pow"""
+
+    def __init__(self, minimum=0.1, maximum=2.0, power=-2, **kwargs):
+        """
+        Set up prior object's hyperparameter values.
+
+        Prior is uniform in [minimum, maximum] in each parameter.
+
+        Parameters
+        ----------
+        minimum: float
+        maximum: float
+        power: float or int
+        kwargs: dict, optional
+            See BasePrior.__init__ for more infomation.
+        """
+        BasePrior.__init__(self, **kwargs)
+        assert maximum > minimum > 0, (minimum, maximum)
+        self.maximum = maximum
+        self.minimum = minimum
+        self.power = power
+        self.const = 1 / abs((minimum ** power) - (maximum ** power))
+
+    def cube_to_physical(self, cube):
+        """
+        Map hypercube values to physical parameter values.
+
+        Parameters
+        ----------
+        cube: 1d numpy array
+
+        Returns
+        -------
+        theta: 1d numpy array
+        """
+        return np.sqrt((self.minimum ** self.power) - (cube / self.const))
 
 
 class Exponential(BasePrior):
@@ -344,6 +386,45 @@ class BlockPrior(object):
             end += self.block_sizes[i]
             theta[start:end] = prior(cube[start:end])
             start += self.block_sizes[i]
+        return theta
+
+
+class NNPrior(BlockPrior):
+
+    """NN prior with hyperparameter alpha controlling sigma of Gaussian prior
+    applied to weights."""
+
+    def __init__(self, n_nodes, adaptive=False, use_hyper=False, nfunc_min=1):
+        assert isinstance(n_nodes, list)
+        assert len(n_nodes) >= 2
+        self.use_hyper = use_hyper
+        self.sigma_default = 10
+        self.adaptive = adaptive
+        prior_blocks = []
+        block_sizes = []
+        # Add adaptive integer parameter
+        if adaptive:
+            assert len(set(n_nodes[1:])) == 1, n_nodes
+            prior_blocks.append(Uniform(nfunc_min - 0.5, n_nodes[1] + 0.5))
+            block_sizes.append(1)
+        # Gaussian prior on main weights
+        prior_blocks.append(Gaussian(self.sigma_default))
+        block_sizes.append(nn.nn_num_params(n_nodes))
+        # Hyperparameter controlling weights Gaussian
+        if use_hyper:
+            prior_blocks.append(Uniform(0.1, 10))
+            block_sizes.append(1)
+        # Call BlockPrior init to store priors and sizes
+        super(NNPrior, self).__init__(prior_blocks, block_sizes)
+
+    def __call__(self, cube):
+        theta = super(NNPrior, self).__call__(cube)
+        if self.use_hyper:
+            # Scale Gaussian prior sigmas according to hyperparameter sigma
+            if self.adaptive:
+                theta[1:-1] *= (theta[0] / self.sigma_default)
+            else:
+                theta[:-1] *= (theta[0] / self.sigma_default)
         return theta
 
 
