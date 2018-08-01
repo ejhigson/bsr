@@ -162,7 +162,7 @@ class Gaussian(BasePrior):
 
     """Symmetric Gaussian prior centred on the origin."""
 
-    def __init__(self, sigma=10.0, **kwargs):
+    def __init__(self, sigma=10.0, positive=False, **kwargs):
         """
         Set up prior object's hyperparameter values.
 
@@ -170,19 +170,23 @@ class Gaussian(BasePrior):
         ----------
         sigma: float
             Standard deviation of Gaussian prior in each parameter.
+        positive: bool
+            Whether or not to use a truncated Gaussian prior where values are
+            always positive.
         kwargs: dict, optional
             See BasePrior.__init__ for more infomation.
         """
         BasePrior.__init__(self, **kwargs)
         self.sigma = sigma
+        self.positive = positive
 
-    def __call__(self, hypercube):
+    def cube_to_physical(self, cube):
         """
         Map hypercube values to physical parameter values.
 
         Parameters
         ----------
-        hypercube: 1d numpy array
+        cube: 1d numpy array
             Point coordinate on unit hypercube (in probabily space).
             See the PolyChord papers for more details.
 
@@ -191,7 +195,10 @@ class Gaussian(BasePrior):
         theta: 1d numpy array
             Physical parameter values corresponding to hypercube.
         """
-        theta = scipy.special.erfinv(2 * hypercube - 1)
+        if self.positive:
+            theta = scipy.special.erfinv(cube)
+        else:
+            theta = scipy.special.erfinv(2 * cube - 1)
         theta *= self.sigma * np.sqrt(2)
         return theta
 
