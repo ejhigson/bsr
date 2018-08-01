@@ -61,13 +61,11 @@ def get_default_prior(func, nfunc, **kwargs):
         return AdFamPrior(gg_prior, ta_prior, nfunc)
     elif func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d']:
         if func.__name__ in ['gg_1d', 'gg_2d']:
-            priors_dict = {'a':     SortedExponential(2.0),
+            priors_dict = {'a':     Exponential(
+                2.0, nfunc_min=nfunc_min, adaptive=adaptive, sort=True),
                            'mu':    Uniform(0, 1.0),
                            'sigma': Exponential(2.0),
                            'beta':  Exponential(0.5)}
-            if adaptive:
-                priors_dict['a'] = AdaptiveSortedExponential(
-                    nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
             if func.__name__ == 'gg_2d':
                 for param in ['mu', 'sigma', 'beta']:
                     priors_dict[param + '1'] = priors_dict[param]
@@ -75,13 +73,11 @@ def get_default_prior(func, nfunc, **kwargs):
                     del priors_dict[param]  # Causes error if accidentally used
                 priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
         elif func.__name__ in ['ta_1d', 'ta_2d']:
-            priors_dict = {'a':           SortedExponential(0.5),
+            priors_dict = {'a':           Exponential(
+                0.5, nfunc_min=nfunc_min, adaptive=adaptive, sort=True),
                            'w_0':         Gaussian(10.0),
                            'w_1':         Gaussian(10.0),
                            'w_2':         Gaussian(10.0)}
-            if adaptive:
-                priors_dict['a'] = AdaptiveSortedExponential(
-                    nfunc_min=nfunc_min, **priors_dict['a'].__dict__)
         # Get a list of the priors we want
         args = bf.get_bf_param_names(func)
         prior_blocks = [priors_dict[arg] for arg in args]
@@ -93,11 +89,80 @@ def get_default_prior(func, nfunc, **kwargs):
     return BlockPrior(prior_blocks, block_sizes)
 
 
-class Gaussian(object):
+class BasePrior(object):
+
+    """Base class for Priors."""
+
+    def __init__(self, adaptive=False, sort=False, nfunc_min=1):
+        """
+        Set up prior object's hyperparameter values.
+
+        Parameters
+        ----------
+        adaptive: bool, optional
+        sort: bool, optional
+        nfunc_min: int, optional
+        """
+        self.adaptive = adaptive
+        self.sort = sort
+        self.nfunc_min = nfunc_min
+
+    def cube_to_physical(self, cube):  # pylint: disable=no-self-use
+        """
+        Map hypercube values to physical parameter values.
+
+        Parameters
+        ----------
+        cube: 1d numpy array
+            Point coordinate on unit hypercube (in probabily space).
+            See the PolyChord papers for more details.
+
+        Returns
+        -------
+        theta: 1d numpy array
+            Physical parameter values corresponding to hypercube.
+        """
+        return cube
+
+    def __call__(self, cube):
+        """
+        Evaluate prior on hypercube coordinates.
+
+        Parameters
+        ----------
+        cube: 1d numpy array
+            Point coordinate on unit hypercube (in probabily space).
+
+        Returns
+        -------
+        theta: 1d numpy array
+            Physical parameter values for prior.
+        """
+        if self.adaptive:
+            try:
+                nfunc, theta = adaptive_transform(cube, self.nfunc_min)
+            except ValueError:
+                if np.isnan(cube[0]):
+                    return np.full(cube.shape, np.nan)
+                else:
+                    raise
+            if self.sort:
+                cube[1:1 + nfunc] = forced_identifiability(
+                    cube[1:1+ nfunc])
+            # perform prior on adaptively selected components
+            theta[1:] = self.cube_to_physical(cube[1:])
+            return theta
+        else:
+            if self.sort:
+                cube = forced_identifiability(cube)
+            return self.cube_to_physical(cube)
+
+
+class Gaussian(BasePrior):
 
     """Symmetric Gaussian prior centred on the origin."""
 
-    def __init__(self, sigma=10.0):
+    def __init__(self, sigma=10.0, **kwargs):
         """
         Set up prior object's hyperparameter values.
 
@@ -105,7 +170,10 @@ class Gaussian(object):
         ----------
         sigma: float
             Standard deviation of Gaussian prior in each parameter.
+        kwargs: dict, optional
+            See BasePrior.__init__ for more infomation.
         """
+        BasePrior.__init__(self, **kwargs)
         self.sigma = sigma
 
     def __call__(self, hypercube):
@@ -128,11 +196,11 @@ class Gaussian(object):
         return theta
 
 
-class Uniform(object):
+class Uniform(BasePrior):
 
     """Uniform prior."""
 
-    def __init__(self, minimum=0.0, maximum=1.0):
+    def __init__(self, minimum=0.0, maximum=1.0, **kwargs):
         """
         Set up prior object's hyperparameter values.
 
@@ -142,180 +210,59 @@ class Uniform(object):
         ----------
         minimum: float
         maximum: float
+        kwargs: dict, optional
+            See BasePrior.__init__ for more infomation.
         """
+        BasePrior.__init__(self, **kwargs)
         assert maximum > minimum
         self.maximum = maximum
         self.minimum = minimum
 
-    def __call__(self, hypercube):
+    def cube_to_physical(self, cube):
         """
         Map hypercube values to physical parameter values.
 
         Parameters
         ----------
-        hypercube: 1d numpy array
-            Point coordinate on unit hypercube (in probabily space).
-            See the PolyChord papers for more details.
+        cube: 1d numpy array
 
         Returns
         -------
         theta: 1d numpy array
-            Physical parameter values corresponding to hypercube.
         """
-        return self.minimum + (self.maximum - self.minimum) * hypercube
+        return self.minimum + (self.maximum - self.minimum) * cube
 
 
-class Exponential(object):
+class Exponential(BasePrior):
 
     """Exponential prior."""
 
-    def __init__(self, lambd=1.0):
+    def __init__(self, lambd=1.0, **kwargs):
         """
         Set up prior object's hyperparameter values.
 
         Parameters
         ----------
         lambd: float
+        kwargs: dict, optional
+            See BasePrior.__init__ for more infomation.
         """
+        BasePrior.__init__(self, **kwargs)
         self.lambd = lambd
 
-    def __call__(self, hypercube):
+    def cube_to_physical(self, cube):
         """
         Map hypercube values to physical parameter values.
 
         Parameters
         ----------
-        hypercube: 1d numpy array
-            Point coordinate on unit hypercube (in probabily space).
-            See the PolyChord papers for more details.
+        cube: 1d numpy array
 
         Returns
         -------
         theta: 1d numpy array
-            Physical parameter values corresponding to hypercube.
         """
-        return - np.log(1 - hypercube) / self.lambd
-
-
-class SortedUniform(Uniform):
-
-    """Uniform prior with sorting imposed so values have decreasing size."""
-
-    def __call__(self, cube):
-        """See Uniform.__call__ docstring."""
-        ordered = forced_identifiability_transform(cube)
-        return super(SortedUniform, self).__call__(ordered)
-
-
-class SortedExponential(Exponential):
-
-    """Exponential prior with sorting imposed so values have decreasing
-    size."""
-
-    def __call__(self, cube):
-        """See Exponential.__call__ docstring."""
-        ordered = forced_identifiability_transform(cube)
-        return super(SortedExponential, self).__call__(ordered)
-
-
-class AdaptiveSortedUniform(SortedUniform):
-
-    """Adaptive sorted uniform prior."""
-
-    def __init__(self, minimum=0.0, maximum=1.0, nfunc_min=1):
-        """
-        Set up prior object's hyperparameter values.
-
-        Parameters
-        ----------
-        minimum: float
-        maximum: float
-        nfunc_min: int, optional
-        """
-        SortedUniform.__init__(self, minimum, maximum)
-        self.minimum = minimum
-        self.maximum = maximum
-        self.nfunc_min = nfunc_min
-
-    def __call__(self, cube):
-        """
-        Map hypercube values to physical parameter values.
-
-        Parameters
-        ----------
-        hypercube: 1d numpy array
-            Point coordinate on unit hypercube (in probabily space).
-            See the PolyChord papers for more details.
-
-        Returns
-        -------
-        theta: 1d numpy array
-            Physical parameter values corresponding to hypercube.
-        """
-        try:
-            nfunc, theta = adaptive_transform(cube, self.nfunc_min)
-            # perform SortedUniform on the next nfunc components
-            theta[1:1 + nfunc] = SortedUniform.__call__(self,
-                                                        cube[1:1 + nfunc])
-            # do uniform prior on remaining components
-            if len(cube) > 1 + nfunc:
-                theta[1 + nfunc:] = (
-                    self.minimum + (self.maximum - self.minimum)
-                    * cube[1 + nfunc:])
-            return theta
-        except ValueError:
-            if np.isnan(cube[0]):
-                return np.full(cube.shape, np.nan)
-            else:
-                raise
-
-
-class AdaptiveSortedExponential(SortedExponential):
-
-    """Adaptive sorted uniform prior."""
-
-    def __init__(self, lambd=1.0, nfunc_min=1):
-        """
-        Set up prior object's hyperparameter values.
-
-        Parameters
-        ----------
-        lambd: float
-        nfunc_min: int, optional
-        """
-        SortedExponential.__init__(self, lambd=lambd)
-        self.lamb = lambd
-        self.nfunc_min = nfunc_min
-
-    def __call__(self, cube):
-        """
-        Map hypercube values to physical parameter values.
-
-        Parameters
-        ----------
-        hypercube: 1d numpy array
-            Point coordinate on unit hypercube (in probabily space).
-            See the PolyChord papers for more details.
-
-        Returns
-        -------
-        theta: 1d numpy array
-            Physical parameter values corresponding to hypercube.
-        """
-        try:
-            nfunc, theta = adaptive_transform(cube, self.nfunc_min)
-            # perform SortedExponential on the next nfunc components
-            theta[1:1 + nfunc] = SortedExponential.__call__(
-                self, cube[1:1 + nfunc])
-            # do uniform prior on remaining components
-            if len(cube) > 1 + nfunc:
-                theta[1 + nfunc:] = Exponential(self.lambd)(cube[1 + nfunc:])
-            return theta
-        except ValueError:
-            if np.isnan(cube[0]):
-                return np.full(cube.shape, np.nan)
-            else:
-                raise
+        return - np.log(1 - cube) / self.lambd
 
 
 class AdFamPrior(object):
@@ -397,7 +344,7 @@ class BlockPrior(object):
 # ----------------
 
 
-def forced_identifiability_transform(cube):
+def forced_identifiability(cube):
     """Transform hypercube coordinates to enforce identifiability.
     Note that the formula in the MNRAS PolyChord paper (2015) contains a typo.
 

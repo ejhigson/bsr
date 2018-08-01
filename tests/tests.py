@@ -227,7 +227,8 @@ class TestData(unittest.TestCase):
                 args = bsr.data.get_data_args(data_func, nfunc)
                 self.assertEqual(len(args),
                                  nfunc * len(bf.get_bf_param_names(data_func)))
-        self.assertRaises(AssertionError, bsr.data.get_data_args, bf.gg_1d, 100)
+        self.assertRaises(AssertionError, bsr.data.get_data_args,
+                          bf.gg_1d, 100)
 
 
 class TestPriors(unittest.TestCase):
@@ -268,8 +269,7 @@ class TestPriors(unittest.TestCase):
         Note that the PolyChord paper contains a typo in the formulae."""
         n = 5
         hypercube = np.random.random(n)
-        theta_func = bsr.priors.forced_identifiability_transform(
-            hypercube)
+        theta_func = bsr.priors.forced_identifiability(hypercube)
 
         def forced_ident_transform(x):
             """PyPolyChord version of the forced identifiability transform.
