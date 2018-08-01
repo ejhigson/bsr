@@ -305,10 +305,19 @@ class TestPriors(unittest.TestCase):
         # Test nn prior
         n_nodes = [2, 3]
         np.random.seed(0)
+        # Vanilla
         cube = np.random.random(nn.nn_num_params(n_nodes))
         prior = bsr.priors.get_default_prior(
             nn.nn_fit, n_nodes, adaptive=False)
         expected = bsr.priors.Gaussian(10)(cube)
+        numpy.testing.assert_allclose(prior(cube), expected,
+                                      rtol=1e-06, atol=1e-06)
+        # Adaptive
+        cube = np.random.random(nn.nn_num_params(n_nodes) + 1)
+        prior = bsr.priors.get_default_prior(
+            nn.nn_fit, n_nodes, adaptive=True)
+        expected = bsr.priors.Gaussian(10)(cube)
+        expected[0] = bsr.priors.Uniform(0.5, n_nodes[-1] + 0.5)(cube[0])
         numpy.testing.assert_allclose(prior(cube), expected,
                                       rtol=1e-06, atol=1e-06)
         # return to original random state
