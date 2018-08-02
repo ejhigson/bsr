@@ -245,6 +245,28 @@ class TestPriors(unittest.TestCase):
         numpy.testing.assert_allclose(theta_prior, theta_check)
 
     @staticmethod
+    def test_power_uniform():
+        """Check prior for some power of theta uniformly distributed"""
+        cube = np.random.random(10)
+        for power in [-2, 3]:
+            power = -2
+            maximum = 20
+            minimum = 0.1
+            theta = bsr.priors.PowerUniform(
+                minimum, maximum, power=power)(cube)
+            # Check this vs doing a uniform prior and transforming
+            # Note if power < 0, the high to low order of X is inverted
+            umin = min(minimum ** (1 / power), maximum ** (1 / power))
+            umax = max(minimum ** (1 / power), maximum ** (1 / power))
+            test_prior = bsr.priors.Uniform(umin, umax)
+            if power < 0:
+                theta_check = test_prior(1 - cube) ** power
+            else:
+                theta_check = test_prior(cube) ** power
+            numpy.testing.assert_allclose(theta, theta_check)
+
+
+    @staticmethod
     def test_gaussian():
         """Check spherically symmetric Gaussian prior centred on the origin."""
         prior_scale = 5

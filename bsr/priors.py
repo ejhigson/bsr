@@ -242,9 +242,9 @@ class Uniform(BasePrior):
         return self.minimum + (self.maximum - self.minimum) * cube
 
 
-class InvPow(BasePrior):
+class PowerUniform(BasePrior):
 
-    """Uniform in theta^-pow"""
+    """Uniform in theta ** power"""
 
     def __init__(self, minimum=0.1, maximum=2.0, power=-2, **kwargs):
         """
@@ -262,10 +262,12 @@ class InvPow(BasePrior):
         """
         BasePrior.__init__(self, **kwargs)
         assert maximum > minimum > 0, (minimum, maximum)
+        assert power != 0, power
         self.maximum = maximum
         self.minimum = minimum
         self.power = power
-        self.const = 1 / abs((minimum ** power) - (maximum ** power))
+        self.const = abs((minimum ** (1. / power)) - (maximum ** (1. / power)))
+        self.const = 1 / self.const
 
     def cube_to_physical(self, cube):
         """
@@ -279,7 +281,11 @@ class InvPow(BasePrior):
         -------
         theta: 1d numpy array
         """
-        return np.sqrt((self.minimum ** self.power) - (cube / self.const))
+        if self.power > 0:
+            theta = (self.minimum ** (1. / self.power)) + (cube / self.const)
+        else:
+            theta = (self.minimum ** (1. / self.power)) - (cube / self.const)
+        return theta ** self.power
 
 
 class Exponential(BasePrior):
