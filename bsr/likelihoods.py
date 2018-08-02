@@ -39,6 +39,7 @@ class FittingLikelihood(object):
         """
         self.adaptive = kwargs.pop('adaptive', False)
         self.global_bias = kwargs.pop('global_bias', False)
+        self.use_hyper = kwargs.pop('use_hyper', function.__name__[:2] == 'nn')
         if kwargs:
             raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
         self.data = data
@@ -66,12 +67,16 @@ class FittingLikelihood(object):
             self.ndim += 1
         if self.adaptive:
             self.ndim += 1
+        if self.use_hyper:
+            self.ndim += 1
 
     def fit(self, theta, x1, x2=None):
         """
         Fit the data using the model and parameters theta.
         """
         if self.function.__name__[:2] == 'nn':
+            if self.use_hyper:
+                theta = theta[:-1]  # remove hyperparameter
             if self.adaptive:
                 theta = nn.adaptive_theta(theta, self.nfunc)
             if isinstance(x1, (int, float)):

@@ -400,7 +400,7 @@ class NNPrior(BlockPrior):
     """NN prior with hyperparameter alpha controlling sigma of Gaussian prior
     applied to weights."""
 
-    def __init__(self, n_nodes, adaptive=False, use_hyper=False, nfunc_min=1):
+    def __init__(self, n_nodes, adaptive=False, use_hyper=True, nfunc_min=1):
         assert isinstance(n_nodes, list)
         assert len(n_nodes) >= 2
         self.use_hyper = use_hyper
@@ -418,7 +418,7 @@ class NNPrior(BlockPrior):
         block_sizes.append(nn.nn_num_params(n_nodes))
         # Hyperparameter controlling weights Gaussian
         if use_hyper:
-            prior_blocks.append(Uniform(0.1, 10))
+            prior_blocks.append(PowerUniform(0.1, 20, power=-2))
             block_sizes.append(1)
         # Call BlockPrior init to store priors and sizes
         super(NNPrior, self).__init__(prior_blocks, block_sizes)
@@ -426,7 +426,7 @@ class NNPrior(BlockPrior):
     def __call__(self, cube):
         theta = super(NNPrior, self).__call__(cube)
         if self.use_hyper:
-            # Scale Gaussian prior sigmas according to hyperparameter sigma
+            # Scale Gaussian physical coordinates according to hyperparameter
             if self.adaptive:
                 theta[1:-1] *= (theta[0] / self.sigma_default)
             else:
