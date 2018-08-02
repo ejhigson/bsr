@@ -36,6 +36,7 @@ def get_default_prior(func, nfunc, **kwargs):
     nfunc_min = kwargs.pop('nfunc_min', 1)
     global_bias = kwargs.pop('global_bias', False)
     adaptive = kwargs.pop('adaptive', False)
+    sigma_default = kwargs.pop('sigma_default', 10)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     assert not global_bias
@@ -75,11 +76,12 @@ def get_default_prior(func, nfunc, **kwargs):
                     del priors_dict[param]  # Causes error if accidentally used
                 priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
         elif func.__name__ in ['ta_1d', 'ta_2d']:
-            priors_dict = {'a':           Exponential(
-                0.5, nfunc_min=nfunc_min, adaptive=adaptive, sort=True),
-                           'w_0':         Gaussian(10.0),
-                           'w_1':         Gaussian(10.0),
-                           'w_2':         Gaussian(10.0)}
+            priors_dict = {'a':           Gaussian(
+                sigma_default, nfunc_min=nfunc_min, adaptive=adaptive,
+                sort=True, positive=True),
+                           'w_0':         Gaussian(sigma_default),
+                           'w_1':         Gaussian(sigma_default),
+                           'w_2':         Gaussian(sigma_default)}
         # Get a list of the priors we want
         args = bf.get_bf_param_names(func)
         prior_blocks = [priors_dict[arg] for arg in args]
@@ -400,24 +402,39 @@ class NNPrior(BlockPrior):
     """NN prior with hyperparameter alpha controlling sigma of Gaussian prior
     applied to weights."""
 
-    def __init__(self, n_nodes, adaptive=False, use_hyper=True, nfunc_min=1):
+    def __init__(self, n_nodes, **kwargs):
+        self.adaptive = kwargs.pop('adaptive', False)
+        self.use_hyper = kwargs.pop('use_hyper', True)
+        self.sigma_default = kwargs.pop('sigma_default', 10)
+        nfunc_min = kwargs.pop('nfunc_min', 1)
+        if kwargs:
+            raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
         assert isinstance(n_nodes, list)
         assert len(n_nodes) >= 2
-        self.use_hyper = use_hyper
-        self.sigma_default = 10
-        self.adaptive = adaptive
         prior_blocks = []
         block_sizes = []
-        # Add adaptive integer parameter
-        if adaptive:
-            assert len(set(n_nodes[1:])) == 1, n_nodes
-            prior_blocks.append(Uniform(nfunc_min - 0.5, n_nodes[1] + 0.5))
-            block_sizes.append(1)
-        # Gaussian prior on main weights
-        prior_blocks.append(Gaussian(self.sigma_default))
-        block_sizes.append(nn.nn_num_params(n_nodes))
+        # # Add adaptive integer parameter
+        # if adaptive:
+        #     assert len(set(n_nodes[1:])) == 1, n_nodes
+        #     prior_blocks.append(Uniform(nfunc_min - 0.5, n_nodes[1] + 0.5))
+        #     block_sizes.append(1)
+        # # Gaussian prior on main weights
+        # prior_blocks.append(Gaussian(self.sigma_default))
+        # block_sizes.append(nn.nn_num_params(n_nodes))
         # Hyperparameter controlling weights Gaussian
-        if use_hyper:
+        # Prior on outputs
+        prior_blocks.append(Gaussian(
+            self.sigma_default, adaptive=self.adaptive, nfunc_min=nfunc_min,
+            sort=True, positive=len(n_nodes) == 2))
+        if self.adaptive:
+            block_sizes.append(n_nodes[-1] + 1)
+        else:
+            block_sizes.append(n_nodes[-1])
+        # Priors on remaining weights
+        prior_blocks.append(Gaussian(self.sigma_default))
+        block_sizes.append(nn.nn_num_params(n_nodes) - n_nodes[-1])
+        # Priors on hyperparameter
+        if self.use_hyper:
             prior_blocks.append(PowerUniform(0.1, 20, power=-2))
             block_sizes.append(1)
         # Call BlockPrior init to store priors and sizes
