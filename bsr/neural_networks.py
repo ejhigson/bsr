@@ -52,7 +52,7 @@ def nn_2l(x, params, n_nodes, **kwargs):
     return nn_fit(x, params, n_nodes, **kwargs)
 
 
-def get_nn_param_names(n_nodes):
+def get_nn_param_names(n_nodes, use_hyper=True):
     """get names for the neural network parameters."""
     assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)
     param_names = ['a_{}'.format(i) for i in range(n_nodes[-1] + 1)]
@@ -61,6 +61,8 @@ def get_nn_param_names(n_nodes):
             for i_too in range(1, n_nodes[layer + 1] + 1):
                 param_names.append('w_{}_{}_{}'.format(i_from, i_too, layer))
     assert len(param_names) == nn_num_params(n_nodes), param_names
+    if use_hyper:
+        param_names.append('sigma_w')
     return param_names
 
 
@@ -90,7 +92,7 @@ def adaptive_theta(theta, n_nodes):
             raise
 
 
-def get_nn_param_latex_names(n_nodes):
+def get_nn_param_latex_names(n_nodes, use_hyper=True):
     """get names for the neural network parameters."""
     assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)
     param_names = ['$a_{}$'.format(i) for i in range(n_nodes[-1] + 1)]
@@ -100,6 +102,8 @@ def get_nn_param_latex_names(n_nodes):
                 param_names.append('$w_{{{},{}}}^{{[{}]}}$'.format(
                     i_from, i_too, layer))
     assert len(param_names) == nn_num_params(n_nodes), param_names
+    if use_hyper:
+        param_names.append(r'$\sigma_w$')
     return param_names
 
 

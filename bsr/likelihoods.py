@@ -113,7 +113,8 @@ class FittingLikelihood(object):
     def get_param_names(self):
         """Get list of parameter names as str."""
         if self.function.__name__[:2] == 'nn':
-            return nn.get_nn_param_names(self.nfunc)
+            return nn.get_nn_param_names(
+                self.nfunc, use_hyper=self.use_hyper)
         else:
             if self.function.__name__ == 'adfam_gg_ta_1d':
                 bf_params = bf.get_bf_param_names(bf.gg_1d)
@@ -135,7 +136,8 @@ class FittingLikelihood(object):
     def get_param_latex_names(self):
         """Get list of parameter names as str."""
         if self.function.__name__[:2] == 'nn':
-            return nn.get_nn_param_latex_names(self.nfunc)
+            return nn.get_nn_param_latex_names(
+                self.nfunc, use_hyper=self.use_hyper)
         elif self.function.__name__ == 'adfam_gg_ta_1d':
             return self.get_param_names()
         else:
