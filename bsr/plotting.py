@@ -16,7 +16,7 @@ import nestcheck.error_analysis
 import nestcheck.parallel_utils
 import bsr.priors
 import bsr.basis_functions as bf
-import run_bsr
+import bsr.results_utils
 
 
 def adaptive_logz(run, logw=None, nfunc=1):
@@ -45,7 +45,7 @@ def plot_bayes_prob_dict(problem_data, **kwargs):
     if adfam:
         nfunc_list = list(range(1, 11))
     else:
-        nfunc_list = run_bsr.nfunc_list_union(problem_data)
+        nfunc_list = bsr.results_utils.nfunc_list_union(problem_data)
     for meth_key, meth_data in problem_data.items():
         adaptive, dynamic_goal, _, _ = meth_key
         run_list_list.append(meth_data['run_list'])

@@ -171,6 +171,16 @@ def make_base_dict(problem_tups, method_tups, **kwargs):
     return output
 
 
+def root_given_key(prob_key):
+    """Turn the tuple keys into a string."""
+    root = ''
+    for i, info in enumerate(prob_key):
+        if i != 0:
+            root += '_'
+        root += str(info)
+    return root.replace('.', '_')
+
+
 def get_problem_key(fit_func, data_func, data_type):
     """Map the problem tuple (which contains functions) to a key tuple."""
     return (fit_func.__name__, data_func.__name__, data_type)
