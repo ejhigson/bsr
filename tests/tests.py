@@ -142,8 +142,10 @@ class TestNeuralNetworks(unittest.TestCase):
         """Check parameter naming functions."""
         n_nodes = [2, 3]
         n_params = nn.nn_num_params(n_nodes)
-        self.assertEqual(len(nn.get_nn_param_names(n_nodes)), n_params)
-        self.assertEqual(len(nn.get_nn_param_latex_names(n_nodes)), n_params)
+        self.assertEqual(
+            len(nn.get_nn_param_names(n_nodes, use_hyper=False)), n_params)
+        self.assertEqual(len(nn.get_nn_param_latex_names(
+            n_nodes, use_hyper=False)), n_params)
 
     def test_nn_flatten_parameters(self):
         """Check parameter naming functions."""
@@ -324,22 +326,44 @@ class TestPriors(unittest.TestCase):
             1.678866, 5.196508, 0.147371, -0.648536, -0.753639])
         numpy.testing.assert_allclose(prior(cube), expected,
                                       rtol=1e-06, atol=1e-06)
+        # return to original random state
+        np.random.set_state(state)
+
+    @staticmethod
+    def test_nn_prior():
+        """Check default neural network prior."""
         # Test nn prior
         n_nodes = [2, 3]
+        w_sigma_default = 10
+        state = np.random.get_state()
         np.random.seed(0)
         # Vanilla
-        cube = np.random.random(nn.nn_num_params(n_nodes))
+        cube = np.random.random(nn.nn_num_params(n_nodes) + 1)
         prior = bsr.priors.get_default_prior(
             nn.nn_fit, n_nodes, adaptive=False)
-        expected = bsr.priors.Gaussian(10)(cube)
+        expected = np.zeros(cube.shape)
+        expected[:n_nodes[-1]] = bsr.priors.Gaussian(
+            w_sigma_default, sort=True, positive=True)(cube[:n_nodes[-1]])
+        expected[n_nodes[-1]:-1] = bsr.priors.Gaussian(
+            w_sigma_default, sort=False)(cube[n_nodes[-1]:-1])
+        expected[-1] = bsr.priors.PowerUniform(0.1, 20, power=-2)(cube[-1])
+        expected[:-1] *= expected[-1] / w_sigma_default
         numpy.testing.assert_allclose(prior(cube), expected,
                                       rtol=1e-06, atol=1e-06)
         # Adaptive
-        cube = np.random.random(nn.nn_num_params(n_nodes) + 1)
+        cube = np.random.random(nn.nn_num_params(n_nodes) + 2)
         prior = bsr.priors.get_default_prior(
-            nn.nn_fit, n_nodes, adaptive=True)
-        expected = bsr.priors.Gaussian(10)(cube)
-        expected[0] = bsr.priors.Uniform(0.5, n_nodes[-1] + 0.5)(cube[0])
+            nn.nn_fit, n_nodes, adaptive=True,
+            w_sigma_default=w_sigma_default)
+        expected = np.zeros(cube.shape)
+        expected[:n_nodes[-1] + 1] = bsr.priors.Gaussian(
+            w_sigma_default, sort=True, adaptive=True, positive=True)(
+                cube[:n_nodes[-1] + 1])
+        expected[n_nodes[-1] + 1:] = bsr.priors.Gaussian(
+            w_sigma_default)(cube[n_nodes[-1] + 1:])
+        # Get w_sigma from prior and scale weights
+        expected[-1] = bsr.priors.PowerUniform(0.1, 20, power=-2)(cube[-1])
+        expected[1:-1] *= expected[-1] / w_sigma_default
         numpy.testing.assert_allclose(prior(cube), expected,
                                       rtol=1e-06, atol=1e-06)
         # return to original random state
@@ -363,7 +387,7 @@ class TestLikelihoods(unittest.TestCase):
         ta_likelihood = bsr.likelihoods.FittingLikelihood(
             data, bf.ta_1d, n_nodes[1])
         nn_likelihood = bsr.likelihoods.FittingLikelihood(
-            data, nn.nn_fit, n_nodes)
+            data, nn.nn_fit, n_nodes, use_hyper=False)
         n_params = nn.nn_num_params(n_nodes)
         theta = np.random.random(n_params)
         theta[0] = 0  # Correct for global bias (not present in ta)
@@ -386,7 +410,7 @@ class TestLikelihoods(unittest.TestCase):
         ta_likelihood = bsr.likelihoods.FittingLikelihood(
             data, bf.ta_2d, n_nodes[1])
         nn_likelihood = bsr.likelihoods.FittingLikelihood(
-            data, nn.nn_fit, n_nodes)
+            data, nn.nn_fit, n_nodes, use_hyper=False)
         n_params = nn.nn_num_params(n_nodes)
         theta = np.random.random(n_params)
         theta[0] = 0  # Correct for global bias (not present in ta)
