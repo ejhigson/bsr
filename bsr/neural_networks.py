@@ -69,7 +69,7 @@ def get_nn_param_names(n_nodes, use_hyper=True):
 def adaptive_theta(theta, n_nodes):
     """Return a theta vector with the nodes that are not used zeroed out."""
     assert theta.shape == (1 + nn_num_params(n_nodes),)
-    try:
+    try:  # pylint: disable=too-many-nested-blocks
         nfunc = int(np.round(int(theta[0])))
         theta = copy.deepcopy(theta[1:])  # deepcopy needed for PolyChord
         assert nfunc <= n_nodes[-1]
@@ -155,7 +155,10 @@ def check_shapes(inputs, w_arr, bias):
 
 
 def nn_num_params(n_nodes):
-    """number of parameters a neural network needs."""
+    """number of parameters a neural network needs.
+
+    Note that this does not include hyperparameters.
+    """
     assert isinstance(n_nodes, list)
     assert len(n_nodes) >= 2
     n_param = n_nodes[-1] + 1  # number of params for final activation

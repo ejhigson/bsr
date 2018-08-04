@@ -36,7 +36,7 @@ def get_default_prior(func, nfunc, **kwargs):
     nfunc_min = kwargs.pop('nfunc_min', 1)
     global_bias = kwargs.pop('global_bias', False)
     adaptive = kwargs.pop('adaptive', False)
-    sigma_default = kwargs.pop('sigma_default', 10)
+    w_sigma_default = kwargs.pop('w_sigma_default', 10)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     assert not global_bias
@@ -44,15 +44,6 @@ def get_default_prior(func, nfunc, **kwargs):
     if func.__name__[:2] == 'nn':
         # in this case nfunc is the list of numbers of nodes
         return NNPrior(nfunc, nfunc_min=nfunc_min, adaptive=adaptive)
-        # assert isinstance(nfunc, list)
-        # assert len(nfunc) >= 2
-        # prior_blocks = [Gaussian(10.0)]
-        # block_sizes = [nn.nn_num_params(nfunc)]
-        # if adaptive:
-        #     assert len(set(nfunc[1:])) == 1, nfunc
-        #     prior_blocks = ([Uniform(nfunc_min - 0.5, nfunc[1] + 0.5)]
-        #                     + prior_blocks)
-        #     block_sizes = [1] + block_sizes
     elif func.__name__ == 'adfam_gg_ta_1d':
         assert adaptive
         # Need to explicitly provide all args rather than use **kwargs as
@@ -77,11 +68,11 @@ def get_default_prior(func, nfunc, **kwargs):
                 priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
         elif func.__name__ in ['ta_1d', 'ta_2d']:
             priors_dict = {'a':           Gaussian(
-                sigma_default, nfunc_min=nfunc_min, adaptive=adaptive,
+                w_sigma_default, nfunc_min=nfunc_min, adaptive=adaptive,
                 sort=True, positive=True),
-                           'w_0':         Gaussian(sigma_default),
-                           'w_1':         Gaussian(sigma_default),
-                           'w_2':         Gaussian(sigma_default)}
+                           'w_0':         Gaussian(w_sigma_default),
+                           'w_1':         Gaussian(w_sigma_default),
+                           'w_2':         Gaussian(w_sigma_default)}
         # Get a list of the priors we want
         args = bf.get_bf_param_names(func)
         prior_blocks = [priors_dict[arg] for arg in args]
@@ -405,7 +396,7 @@ class NNPrior(BlockPrior):
     def __init__(self, n_nodes, **kwargs):
         self.adaptive = kwargs.pop('adaptive', False)
         self.use_hyper = kwargs.pop('use_hyper', True)
-        self.sigma_default = kwargs.pop('sigma_default', 10)
+        self.w_sigma_default = kwargs.pop('w_sigma_default', 10)
         nfunc_min = kwargs.pop('nfunc_min', 1)
         if kwargs:
             raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
@@ -419,19 +410,19 @@ class NNPrior(BlockPrior):
         #     prior_blocks.append(Uniform(nfunc_min - 0.5, n_nodes[1] + 0.5))
         #     block_sizes.append(1)
         # # Gaussian prior on main weights
-        # prior_blocks.append(Gaussian(self.sigma_default))
+        # prior_blocks.append(Gaussian(self.w_sigma_default))
         # block_sizes.append(nn.nn_num_params(n_nodes))
         # Hyperparameter controlling weights Gaussian
         # Prior on outputs
         prior_blocks.append(Gaussian(
-            self.sigma_default, adaptive=self.adaptive, nfunc_min=nfunc_min,
+            self.w_sigma_default, adaptive=self.adaptive, nfunc_min=nfunc_min,
             sort=True, positive=len(n_nodes) == 2))
         if self.adaptive:
             block_sizes.append(n_nodes[-1] + 1)
         else:
             block_sizes.append(n_nodes[-1])
         # Priors on remaining weights
-        prior_blocks.append(Gaussian(self.sigma_default))
+        prior_blocks.append(Gaussian(self.w_sigma_default))
         block_sizes.append(nn.nn_num_params(n_nodes) - n_nodes[-1])
         # Priors on hyperparameter
         if self.use_hyper:
@@ -445,9 +436,9 @@ class NNPrior(BlockPrior):
         if self.use_hyper:
             # Scale Gaussian physical coordinates according to hyperparameter
             if self.adaptive:
-                theta[1:-1] *= (theta[0] / self.sigma_default)
+                theta[1:-1] *= (theta[-1] / self.w_sigma_default)
             else:
-                theta[:-1] *= (theta[0] / self.sigma_default)
+                theta[:-1] *= (theta[-1] / self.w_sigma_default)
         return theta
 
 
