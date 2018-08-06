@@ -127,6 +127,7 @@ class BasePrior(object):
         ----------
         cube: 1d numpy array
             Point coordinate on unit hypercube (in probabily space).
+            Note this variable cannot be edited else PolyChord throws an error.
 
         Returns
         -------
@@ -142,15 +143,21 @@ class BasePrior(object):
                 else:
                     raise
             if self.sort:
-                cube[1:1 + nfunc] = forced_identifiability(
-                    cube[1:1+ nfunc])
-            # perform prior on adaptively selected components
-            theta[1:] = self.cube_to_physical(cube[1:])
-            return theta
+                # Sort only parameters 1 to nfunc
+                theta[1:1 + nfunc] = self.cube_to_physical(
+                    forced_identifiability(cube[1:1 + nfunc]))
+                # Apply prior to remaining unused parameters without sorting
+                if theta.shape[0] > 1 + nfunc:
+                    theta[1 + nfunc:] = self.cube_to_physical(cube[1 + nfunc:])
+                return theta
+            else:
+                theta[1:] = self.cube_to_physical(cube[1:])
+                return theta
         else:
             if self.sort:
-                cube = forced_identifiability(cube)
-            return self.cube_to_physical(cube)
+                return self.cube_to_physical(forced_identifiability(cube))
+            else:
+                return self.cube_to_physical(cube)
 
 
 class Gaussian(BasePrior):
