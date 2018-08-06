@@ -10,7 +10,7 @@ import bsr.basis_functions as bf
 
 def load_data(problem_tups, method_tups, inds, **kwargs):
     """Load run data."""
-    sep_runs = kwargs.pop('sep_runs', False)
+    sep_runs = kwargs.pop('sep_runs', True)
     results_dict = make_base_dict(problem_tups, method_tups, **kwargs)
     for problem_tup in problem_tups:
         prob_key = get_problem_key(*problem_tup)

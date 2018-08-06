@@ -24,68 +24,129 @@ def adaptive_logz(run, logw=None, nfunc=1, adfam_t=None):
         nfunc = nfunc[-1]
     if adfam_t is None:
         vals = run['theta'][:, 0]
+        logw_to_use = logw
     else:
         assert adfam_t in [1, 2], adfam_t
         vals_t = run['theta'][:, 0]
         inds_t = (((adfam_t - 0.5) <= vals_t) & (vals_t < (adfam_t + 0.5)))
         vals = run['theta'][inds_t, :]
-    points = logw[((nfunc - 0.5) <= vals) & (vals < (nfunc + 0.5))]
+        logw_to_use = logw[inds_t]
+    points = logw_to_use[((nfunc - 0.5) <= vals) & (vals < (nfunc + 0.5))]
     if points.shape == (0,):
         return -np.inf
     else:
         return scipy.special.logsumexp(points)
 
 
-@nestcheck.io_utils.save_load_result
-def get_bayes_df(problem_data, **kwargs):
-    """Dataframe of Bayes factors."""
+def get_results_df(results_dict, **kwargs):
+    """get results dataframe."""
+    n_simulate = kwargs.pop('n_simulate', 10)
     adfam = kwargs.pop('adfam', False)
-    n_simulate = kwargs.pop('n_simulate', 5)
-    if adfam:
-        nfunc_list = list(range(1, 11))
-    else:
-        nfunc_list = bsr.results_utils.nfunc_list_union(problem_data)
-    if any(isinstance(nf, list) for nf in nfunc_list):
-        assert all(isinstance(nf, list) for nf in nfunc_list), nfunc_list
-        nfunc_list = [nf[-1] for nf in nfunc_list]
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     df_list = []
-    for meth_key, meth_data in problem_data.items():
-        adaptive = meth_key[0]
-        run_list = meth_data['run_list']
-        if not adaptive:
-            # vanilla bayes
-            bayes = np.asarray([nestcheck.estimators.logz(run) for run in
-                                run_list])
-            bayes -= bayes.max()
-            # std calculation of different runs parallelised and uses simulated
-            # weights method as it gives the correct results for logZ
-            bayes_stds = nestcheck.parallel_utils.parallel_apply(
-                nestcheck.error_analysis.run_std_simulate, run_list,
-                func_args=([nestcheck.estimators.logz],),
-                func_kwargs={'n_simulate': n_simulate})
-            bayes_stds = np.squeeze(np.asarray(bayes_stds))
+    for prob_key, prob_data in results_dict.items():
+        if adfam:
+            nfunc_list = list(range(1, 11))
         else:
-            # Adaptive bayes
-            assert len(run_list) == 1
-            if adfam:
-                theta = run_list[0]['theta']
-                # remove T column and add 5 to adaptive column when T=2
-                theta[np.where(theta[:, 0] >= 1.5), 1] += 5
-                theta = theta[:, 1:]
-                run_list[0]['theta'] = theta
+            nfunc_list = bsr.results_utils.nfunc_list_union(prob_data)
+        if any(isinstance(nf, list) for nf in nfunc_list):
+            assert all(isinstance(nf, list) for nf in nfunc_list), nfunc_list
+            nfunc_list = [nf[-1] for nf in nfunc_list]
+        prob_key_str = bsr.results_utils.root_given_key(prob_key)
+        for meth_key, meth_data in prob_data.items():
+            meth_key_str = bsr.results_utils.root_given_key(meth_key)
+            save_name = 'cache/results_df_{}_{}_{}sim'.format(
+                prob_key_str, meth_key_str, n_simulate)
+            df_temp = get_method_df(
+                meth_data, meth_key[0], save_name=save_name,
+                n_simulate=n_simulate, nfunc_list=nfunc_list,
+                adfam=adfam)
+            df_temp['method key'] = meth_key_str
+            df_temp['problem key'] = prob_key_str
+            df_list.append(df_temp)
+    df = pd.concat(df_list)
+    names = list(df.index.names)
+    df.set_index(['problem key', 'method key'], append=True, inplace=True)
+    return df.reorder_levels(['problem key', 'method key'] + names)
+
+
+@nestcheck.io_utils.save_load_result
+def get_method_df(meth_data, adaptive, **kwargs):
+    """Results for a given method."""
+    df = get_bayes_df(meth_data['run_list'], adaptive,
+                      meth_data['run_list_sep'], **kwargs)
+    nsample = sum([run['logl'].shape[0] for run in meth_data['run_list']])
+    nlike = sum([run['output']['nlike'] for run in meth_data['run_list']])
+    df['nsample'] = [nsample] + [np.nan] * 3
+    df['nlike'] = [nlike] + [np.nan] * 3
+    return df
+
+
+def get_bayes_df(run_list, adaptive, run_list_sep, **kwargs):
+    """Dataframe of Bayes factors."""
+    n_simulate = kwargs.pop('n_simulate')
+    nfunc_list = kwargs.pop('nfunc_list')
+    adfam = kwargs.pop('adfam')
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    if not adaptive:
+        # vanilla bayes
+        bayes = np.asarray([nestcheck.estimators.logz(run) for run in
+                            run_list])
+        # std calculation of different runs parallelised and uses simulated
+        # weights method as it gives the correct results for logZ
+        bayes_unc = nestcheck.parallel_utils.parallel_apply(
+            nestcheck.error_analysis.run_std_simulate, run_list,
+            func_args=([nestcheck.estimators.logz],),
+            func_kwargs={'n_simulate': n_simulate})
+        bayes_unc = np.squeeze(np.asarray(bayes_unc))
+        # Get an alternative std estimate from the variation of the
+        # component runs
+        bayes_split = np.zeros(bayes.shape)
+        bayes_split_unc = np.zeros(bayes_unc.shape)
+        for i, rls in enumerate(run_list_sep):
+            bayes_temp = np.asarray([nestcheck.estimators.logz(run)
+                                     for run in rls])
+            bayes_split[i] = np.mean(bayes_temp)
+            bayes_split_unc[i] = (np.std(bayes_temp, ddof=1)
+                                  / np.sqrt(bayes_temp.shape[0]))
+    else:
+        # Adaptive bayes
+        assert len(run_list) == 1
+        if adfam:
+            funcs = [functools.partial(adaptive_logz, nfunc=nf, adfam_t=1)
+                     for nf in range(1, 6)]
+            funcs += [functools.partial(adaptive_logz, nfunc=nf, adfam_t=2)
+                      for nf in range(1, 6)]
+        else:
             funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in
                      nfunc_list]
-            bayes = nestcheck.ns_run_utils.run_estimators(run_list[0], funcs)
-            bayes -= bayes.max()
-            bayes_stds = nestcheck.error_analysis.run_std_bootstrap(
-                run_list[0], funcs, n_simulate=n_simulate)
-        # Now put into df
-        df_temp = pd.DataFrame(np.vstack([bayes, bayes_stds]),
-                               index=['value', 'uncertainty'],
-                               columns=nfunc_list)
-        df_temp.index.name = 'result type'
-        df_temp['method key'] = bsr.results_utils.root_given_key(meth_key)
-        df_list.append(df_temp)
-    df = pd.concat(df_list)
-    df.set_index('method key', append=True, inplace=True)
-    return df.reorder_levels(['method key', 'result type'])
+        bayes = nestcheck.ns_run_utils.run_estimators(run_list[0], funcs)
+        bayes_unc = nestcheck.error_analysis.run_std_bootstrap(
+            run_list[0], funcs, n_simulate=n_simulate)
+        # Get an alternative std estimate from the variation of the
+        # component runs
+        bayes_split_vals = nestcheck.parallel_utils.parallel_apply(
+            nestcheck.ns_run_utils.run_estimators, run_list_sep[0],
+            func_args=(funcs,))
+        bayes_split = np.asarray([np.mean(arr) for arr in
+                                  bayes_split_vals])
+        bayes_split_unc = np.asarray([np.std(arr, ddof=1) for arr in
+                                      bayes_split_vals])
+        bayes_split_unc /= np.sqrt(len(run_list_sep[0]))
+    bayes -= bayes.max()
+    bayes_split -= bayes_split.max()
+    # Now put into df
+    df_comb = pd.DataFrame(np.vstack([bayes, bayes_unc]),
+                           index=['value', 'uncertainty'],
+                           columns=nfunc_list)
+    df_comb['calculation type'] = 'odds comb'
+    df_split = pd.DataFrame(np.vstack([bayes_split, bayes_split_unc]),
+                            index=['value', 'uncertainty'],
+                            columns=nfunc_list)
+    df_split['calculation type'] = 'odds split'
+    df = pd.concat([df_comb, df_split])
+    df.index.name = 'result type'
+    df.set_index('calculation type', append=True, inplace=True)
+    return df.reorder_levels(['calculation type', 'result type'])
