@@ -130,11 +130,17 @@ def get_bayes_df(run_list, adaptive, run_list_sep, **kwargs):
         bayes_split_vals = nestcheck.parallel_utils.parallel_apply(
             nestcheck.ns_run_utils.run_estimators, run_list_sep[0],
             func_args=(funcs,))
-        bayes_split = np.asarray([np.mean(arr) for arr in
-                                  bayes_split_vals])
-        bayes_split_unc = np.asarray([np.std(arr, ddof=1) for arr in
-                                      bayes_split_vals])
+        # vstack so each row represents a run and each column a number of
+        # functions
+        bayes_split_vals = np.vstack(bayes_split_vals)
+        assert (bayes_split_vals.shape ==
+                (len(run_list_sep[0]), len(nfunc_list))), (
+            bayes_split_vals.shape)
+        bayes_split = np.mean(bayes_split_vals, axis=0)
+        bayes_split_unc = np.std(bayes_split_vals, ddof=1, axis=0)
         bayes_split_unc /= np.sqrt(len(run_list_sep[0]))
+        assert bayes_split.shape == (len(nfunc_list),)
+        assert bayes_split_unc.shape == (len(nfunc_list),)
     bayes -= bayes.max()
     bayes_split -= bayes_split.max()
     # Now put into df
@@ -142,6 +148,8 @@ def get_bayes_df(run_list, adaptive, run_list_sep, **kwargs):
                            index=['value', 'uncertainty'],
                            columns=nfunc_list)
     df_comb['calculation type'] = 'odds comb'
+    print(bayes_split.shape, bayes_split_unc.shape)
+    print(np.vstack([bayes_split, bayes_split_unc]))
     df_split = pd.DataFrame(np.vstack([bayes_split, bayes_split_unc]),
                             index=['value', 'uncertainty'],
                             columns=nfunc_list)
