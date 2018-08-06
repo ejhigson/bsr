@@ -8,20 +8,27 @@ import nestcheck.estimators
 import nestcheck.ns_run_utils
 import nestcheck.error_analysis
 import nestcheck.parallel_utils
+import nestcheck.io_utils
 import bsr.priors
 import bsr.results_utils
 
 
-def adaptive_logz(run, logw=None, nfunc=1):
+def adaptive_logz(run, logw=None, nfunc=1, adfam_t=None):
     """Get the logz assigned to nfunc basis functions from an adaptive run.
     Note that the absolute value does not correspond to that from a similar
     vanilla run, but the relative value can be used when calculating Bayes
     factors."""
     if logw is None:
         logw = nestcheck.ns_run_utils.get_logw(run)
-    vals = run['theta'][:, 0]
     if isinstance(nfunc, list):
         nfunc = nfunc[-1]
+    if adfam_t is None:
+        vals = run['theta'][:, 0]
+    else:
+        assert adfam_t in [1, 2], adfam_t
+        vals_t = run['theta'][:, 0]
+        inds_t = (((adfam_t - 0.5) <= vals_t) & (vals_t < (adfam_t + 0.5)))
+        vals = run['theta'][inds_t, :]
     points = logw[((nfunc - 0.5) <= vals) & (vals < (nfunc + 0.5))]
     if points.shape == (0,):
         return -np.inf
@@ -29,6 +36,7 @@ def adaptive_logz(run, logw=None, nfunc=1):
         return scipy.special.logsumexp(points)
 
 
+@nestcheck.io_utils.save_load_result
 def get_bayes_df(problem_data, **kwargs):
     """Dataframe of Bayes factors."""
     adfam = kwargs.pop('adfam', False)

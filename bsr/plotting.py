@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 """Functions for plotting the results."""
-import functools
 import copy
 import warnings
 import numpy as np
-import pandas as pd
-import scipy.special
 import matplotlib
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
@@ -20,106 +17,55 @@ import bsr.basis_functions as bf
 import bsr.results_utils
 
 
-def plot_bayes_prob_dict(problem_data, **kwargs):
-    """Wrapper for Bayes factors from different methods."""
-    adfam = kwargs.pop('adfam', False)
-    run_list_list = []
-    adaptive_list = []
-    labels = []
-    if adfam:
-        nfunc_list = list(range(1, 11))
-    else:
-        nfunc_list = bsr.results_utils.nfunc_list_union(problem_data)
-    for meth_key, meth_data in problem_data.items():
-        adaptive, dynamic_goal, _, _ = meth_key
-        run_list_list.append(meth_data['run_list'])
-        adaptive_list.append(adaptive)
-        if adfam and adaptive:
-            assert len(run_list_list[-1]) == 1
-            theta = run_list_list[-1][0]['theta']
-            # remove T column and add 5 to adaptive column when T=2
-            theta[np.where(theta[:, 0] >= 1.5), 1] += 5
-            theta = theta[:, 1:]
-            run_list_list[-1][0]['theta'] = theta
-        label = 'adaptive' if adaptive else 'vanilla'
-        if dynamic_goal is not None:
-            label += ' dg={}'.format(dynamic_goal)
-        labels.append(label)
-    fig, _, _ = bsr.plotting.plot_bayes(
-        run_list_list, nfunc_list, adaptive=adaptive_list, labels=labels,
-        **kwargs)
-    if adfam:
-        xlabels = ['1,{}'.format(i) for i in range(1, 6)]
-        xlabels += ['2,{}'.format(i) for i in range(1, 6)]
-        # xlabels = 2 * list(range(1, 6))
-        fig.axes[0].set_xticklabels(xlabels)
-        fig.axes[0].axvline(x=4.5, color='black', linestyle=':')
-    return fig
-
-
-def plot_bayes(run_list_list, nfunc_list, **kwargs):
+def plot_bayes(df, **kwargs):
     """Make a bar chart of vanilla and adaptive Bayes factors, including their
     error bars."""
+    assert len(df.index.names) == 2
+    assert df.index.names[-1] == 'result type', df.index.names
+    adfam = kwargs.pop('adfam', False)
+    method_list = kwargs.pop('method_list',
+                             list(set(df.index.get_level_values(0))))
     title = kwargs.pop('title', 'log posterior odds ratios')
     ymin = kwargs.pop('ymin', -10)
-    if any(isinstance(nf, list) for nf in nfunc_list):
-        assert all(isinstance(nf, list) for nf in nfunc_list), nfunc_list
-        nfunc_list = [nf[-1] for nf in nfunc_list]
-        xlabel_default = 'nodes per hidden layer $B$'
-    else:
-        xlabel_default = 'number of basis functions $B$'
-    xlabel = kwargs.pop('xlabel', xlabel_default)
     figsize = kwargs.pop('figsize', (3, 2))
-    adaptive = kwargs.pop('adaptive',
-                          [len(run_list) == 1 for run_list in run_list_list])
-    labels = kwargs.pop('labels', [str(ad) for ad in adaptive])
     colors = kwargs.pop('colors', ['lightgrey', 'grey', 'black', 'darkblue',
                                    'darkred'])
-    n_simulate = kwargs.pop('n_simulate', 5)
+    nn_xlabel = kwargs.pop('nn_xlabel', False)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
-    bayes_list = []
-    bayes_stds_list = []
-    for i, run_list in enumerate(run_list_list):
-        assert isinstance(run_list, list)
-        if not adaptive[i]:
-            # vanilla bayes
-            logzs = np.asarray([nestcheck.estimators.logz(run) for run in
-                                run_list])
-            bayes_list.append(logzs - logzs.max())
-            # std calculation of different runs parallelised and uses simulated
-            # weights method as it gives the correct results for logZ
-            stds = nestcheck.parallel_utils.parallel_apply(
-                nestcheck.error_analysis.run_std_simulate, run_list,
-                func_args=([nestcheck.estimators.logz],),
-                func_kwargs={'n_simulate': n_simulate})
-            stds = np.squeeze(np.asarray(stds))
-            bayes_stds_list.append(stds)
-        else:
-            assert len(run_list) == 1
-            funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in
-                     nfunc_list]
-            a_bayes = nestcheck.ns_run_utils.run_estimators(run_list[0], funcs)
-            a_bayes -= a_bayes.max()
-            bayes_list.append(a_bayes)
-            bayes_stds_list.append(nestcheck.error_analysis.run_std_bootstrap(
-                run_list[0], funcs, n_simulate=n_simulate))
     # Make the plot
     tot_width = 0.75  # the total width of all the bars
-    bar_width = tot_width / len(bayes_list)
-    bar_centres = np.arange(len(bayes_list)) * bar_width
+    bar_width = tot_width / len(method_list)
+    bar_centres = np.arange(len(method_list)) * bar_width
     bar_centres -= (tot_width - bar_width) * 0.5
-    ind = np.arange(len(nfunc_list))  # the x locations for the groups
+    ind = np.arange(len(df.columns))  # the x locations for the groups
     bars = []
+    labels = []
     fig, ax = plt.subplots(figsize=figsize)
-    for i, bayes in enumerate(bayes_list):
-        bars.append(ax.bar(ind - bar_centres[i], bayes, bar_width,
-                           yerr=bayes_stds_list[i], color=colors[i]))
+    for i, method in enumerate(method_list):
+        # get label
+        label = ''
+        if method.split('_')[0] == 'True':
+            label += 'adaptive'
+        else:
+            assert method.split('_')[0] == 'False', method
+            label += 'vanilla'
+        if method.split('_')[1] != 'None':
+            label += ' dg={}'.format(method.split('_')[1])
+        labels.append(label)
+        # plot bar
+        bars.append(ax.bar(
+            ind - bar_centres[i], df.loc[(method, 'value')], bar_width,
+            yerr=df.loc[(method, 'uncertainty')], color=colors[i]))
     if title is not None:
         ax.set_title(title)
     ax.set_xticks(ind)
+    if nn_xlabel:
+        xlabel = 'nodes per hidden layer $B$'
+    else:
+        xlabel = 'number of basis functions $B$'
     ax.set_xlabel(xlabel)
-    ax.set_xticklabels(['${}$'.format(nf) for nf in nfunc_list])
+    ax.set_xticklabels(['${}$'.format(nf) for nf in df.columns])
     if ymin == -10:
         ax.set_yticks([0, -5, -10])
     ax.legend([ba[0] for ba in bars], labels)
@@ -129,7 +75,12 @@ def plot_bayes(run_list_list, nfunc_list, **kwargs):
               'left': (0.3 / figsize[0]),
               'right': 1 - (0.01 / figsize[0])}
     fig.subplots_adjust(**adjust)
-    return fig, bayes_list, bayes_stds_list
+    if adfam:
+        xlabels = ['1,{}'.format(i) for i in range(1, 6)]
+        xlabels += ['2,{}'.format(i) for i in range(1, 6)]
+        fig.axes[0].set_xticklabels(xlabels)
+        fig.axes[0].axvline(x=4.5, color='black', linestyle=':')
+    return fig
 
 
 def plot_runs(likelihood_list, run_list, **kwargs):
@@ -317,7 +268,7 @@ def plot_1d_adaptive_multi(func, run, nfunc_list=None, **kwargs):
     return plot_1d_grid(funcs, samples, weights, **kwargs)
 
 
-def plot_1d_grid(funcs, samples, weights, **kwargs):
+def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many-branches,too-many-statements
     """Plot a bunch of fgivenx subplots"""
     if not isinstance(funcs, list):
         funcs = [funcs]
