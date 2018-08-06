@@ -69,7 +69,13 @@ def sum_basis_funcs(basis_func, args_iterable, nfunc, x1, **kwargs):
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     if adaptive:
-        sum_max = int(np.round(args_iterable[0]))
+        try:
+            sum_max = int(np.round(args_iterable[0]))
+        except ValueError:
+            if np.isnan(args_iterable[0]):
+                return np.nan * x1  # ensure same type and shape as x1
+            else:
+                raise
         args_arr = args_iterable[1:]
     else:
         sum_max = nfunc
