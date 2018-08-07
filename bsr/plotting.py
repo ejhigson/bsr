@@ -88,10 +88,10 @@ def plot_bayes(df, **kwargs):
     return fig
 
 
-def plot_runs(likelihood_list, run_list, **kwargs):
+def plot_runs(likelihood_list, run_list, nfunc_list, **kwargs):
     """Wrapper for plotting ns runs (automatically tests if they are
     1d or 2d)."""
-    nfunc_list = kwargs.pop('nfunc_list', None)
+    adfam = kwargs.get('adfam', False)
     if not isinstance(likelihood_list, list):
         likelihood_list = [likelihood_list]
     if not isinstance(run_list, list):
@@ -101,7 +101,7 @@ def plot_runs(likelihood_list, run_list, **kwargs):
     if 'titles' not in kwargs:
         kwargs['titles'] = get_default_titles(
             likelihood_list, kwargs.get('plot_data', False),
-            kwargs.get('combine', True), nfunc_list)
+            kwargs.get('combine', True), nfunc_list, adfam=adfam)
     if len(likelihood_list) >= 1:
         for like in likelihood_list[1:]:
             try:
@@ -110,7 +110,8 @@ def plot_runs(likelihood_list, run_list, **kwargs):
                 print('ValueError comparing data')
         kwargs['data'] = likelihood_list[0].data
     if kwargs['data']['y'].ndim == 1:
-        fig = plot_1d_runs(likelihood_list, run_list, **kwargs)
+        fig = plot_1d_runs(likelihood_list, run_list, nfunc_list=nfunc_list,
+                           **kwargs)
     elif kwargs['data']['y'].ndim == 2:
         kwargs.pop('ntrim', None)
         fig = plot_2d_runs(likelihood_list, run_list, **kwargs)
@@ -118,7 +119,7 @@ def plot_runs(likelihood_list, run_list, **kwargs):
 
 
 def get_default_titles(likelihood_list, combine, plot_data,
-                       nfunc_list):
+                       nfunc_list, adfam=False):
     """Get some default titles for the plots."""
     titles = []
     if plot_data:
@@ -126,20 +127,18 @@ def get_default_titles(likelihood_list, combine, plot_data,
     if combine:
         titles.append('fit')
     else:
-        if nfunc_list is None:
-            if len(likelihood_list) == 1 and likelihood_list[0].adaptive:
-                # As we don't know which funcs are being plotted, just assume
-                # they start with B=1 and add a longer list than we actually
-                # need
-                nfunc_list = list(range(1, 12))
-            else:
-                nfunc_list = [like.nfunc for like in likelihood_list]
-        for nfunc in nfunc_list:
-            if isinstance(nfunc, list):
-                # Display only the hidden layers' number of nodes
-                titles.append('$B={}$'.format(nfunc[-1]))
-            else:
-                titles.append('$B={}$'.format(nfunc))
+        if adfam:
+            for nfunc in nfunc_list:
+                titles.append('$T,B=1,{}$'.format(nfunc))
+            for nfunc in nfunc_list:
+                titles.append('$T,B=2,{}$'.format(nfunc))
+        else:
+            for nfunc in nfunc_list:
+                if isinstance(nfunc, list):
+                    # Display only the hidden layers' number of nodes
+                    titles.append('$B={}$'.format(nfunc[-1]))
+                else:
+                    titles.append('$B={}$'.format(nfunc))
     return titles
 
 
@@ -191,6 +190,7 @@ def plot_2d_runs(likelihood_list, run_list, **kwargs):
 def plot_1d_runs(likelihood_list, run_list, **kwargs):
     """Get samples, weights and funcs then feed into plot_1d_grid."""
     combine = kwargs.pop('combine', False)
+    nfunc_list = kwargs.pop('nfunc_list', None)
     funcs = [like.fit_fgivenx for like in likelihood_list]
     samples = [run['theta'] for run in run_list]
     weights = [nestcheck.ns_run_utils.get_w_rel(run) for run in run_list]
@@ -204,7 +204,8 @@ def plot_1d_runs(likelihood_list, run_list, **kwargs):
     else:
         if len(run_list) == 1 and likelihood_list[0].adaptive:
             fig = plot_1d_adaptive_multi(
-                likelihood_list[0].fit_fgivenx, run_list[0], **kwargs)
+                likelihood_list[0].fit_fgivenx, run_list[0],
+                nfunc_list=nfunc_list, **kwargs)
         else:
             fig = plot_1d_grid(funcs, samples, weights, **kwargs)
     return fig
@@ -255,18 +256,30 @@ def plot_colormap(y_list, x1, x2, **kwargs):
     return fig
 
 
-def plot_1d_adaptive_multi(func, run, nfunc_list=None, **kwargs):
+def plot_1d_adaptive_multi(func, run, **kwargs):
     """Helper function for getting samples and weights for each number of
     basis functions from a 1d adaptive run."""
-    samp_nfuncs = np.round(run['theta'][:, 0]).astype(int)
-    if nfunc_list is None:
-        nfunc_list = list(np.unique(samp_nfuncs))
-    funcs = [func] * len(nfunc_list)
+    nfunc_list = kwargs.pop('nfunc_list')
+    adfam = kwargs.pop('adfam', False)
+    inds_list = []
+    if not adfam:
+        funcs = [func] * len(nfunc_list)
+        samp_nfuncs = np.round(run['theta'][:, 0]).astype(int)
+        for nf in nfunc_list:
+            inds_list.append((samp_nfuncs == nf))
+    else:
+        funcs = [func] * 2 * len(nfunc_list)
+        samp_nfam = np.round(run['theta'][:, 0]).astype(int)
+        samp_nfuncs = np.round(run['theta'][:, 1]).astype(int)
+        for nfa in [1, 2]:
+            for nfu in nfunc_list:
+                inds_list.append(np.logical_and(
+                    (samp_nfuncs == nfu), (samp_nfam == nfa)))
+
+    logw = nestcheck.ns_run_utils.get_logw(run)
     samples = []
     weights = []
-    logw = nestcheck.ns_run_utils.get_logw(run)
-    for nf in nfunc_list:
-        inds = np.where(samp_nfuncs == nf)[0]
+    for inds in inds_list:
         samples.append(run['theta'][inds, :])
         logw_temp = logw[inds]
         weights.append(np.exp(logw_temp - logw_temp.max()))
@@ -295,6 +308,7 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many
     figsize = kwargs.pop('figsize', (2.1 * ncol + 1, 2.4 * nrow))
     colorbar_aspect = kwargs.pop('colorbar_aspect', 40)
     data_color = kwargs.pop('data_color', 'darkred')
+    kwargs.pop('adfam', None)  # remove as no longer needed
     # ncolorbar = kwargs.pop('ncolorbar', 1)
     # Make figure
     gs = gridspec.GridSpec(
@@ -307,6 +321,7 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many
             col = i % ncol
             row = i // ncol
             ax = plt.subplot(gs[row, col])
+    cbar_list = []  # for storing colorbars
     for i in range(nplots):
         ax = fig.axes[i]
         col = i % ncol
@@ -329,26 +344,19 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many
                         xerr=data['x_error_sigma'], fmt='none',
                         ecolor=data_color)
         elif plot_data:  # for i >= 2
-            cbar = fgivenx_plot(
+            cbar_list = (fgivenx_plot(
                 funcs[i - 2], x, samples[i - 2], ax, weights=weights[i - 2],
-                logzs=logzs[i - 2], y=x, **kwargs)
+                logzs=logzs[i - 2], y=x, **kwargs))
             # # plot MAP
             # ax.plot(x, funcs[i - 2](x, samples[i - 2][-1, :]), color='black')
         else:
-            cbar = fgivenx_plot(
+            cbar_list.append(fgivenx_plot(
                 funcs[i], x, samples[i], ax, weights=weights[i],
-                logzs=logzs[i], y=x, **kwargs)
+                logzs=logzs[i], y=x, **kwargs))
             # # plot MAP
             # ax.plot(x, funcs[i](x, samples[i][-1, :]), color='black')
         if col == 0:
             ax.set_ylabel('$y$')
-        if (data is None and col == 0) or (data is not None and col == 2):
-            cbar_plot = plt.colorbar(cbar, cax=plt.subplot(gs[row, -1]),
-                                     ticks=[1, 2, 3])
-            cbar_plot.solids.set_edgecolor('face')
-            cbar_plot.ax.set_yticklabels(
-                [r'$1\sigma$', r'$2\sigma$', r'$3\sigma$'])
-            # cbar_plot.ax.set(aspect=colorbar_aspect)
         # Format the axis and ticks
         # -------------------------
         ax.set_xlim([x.min(), x.max()])
@@ -366,6 +374,21 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many
             ax.set_xticklabels([])
         if col != 0:
             ax.set_yticklabels([])
+    for cbar in cbar_list:
+        # If there are not enough samples in the plot, the colourbar will fail
+        # with a RuntimeError. This can occur for undersampled models with the
+        # adpative method. If it happens, just keep trying cbars until we reach
+        # a plot with enough samples
+        try:
+            for row in range(nrow):
+                cbar_plot = plt.colorbar(cbar, cax=plt.subplot(gs[row, -1]),
+                                         ticks=[1, 2, 3])
+                cbar_plot.solids.set_edgecolor('face')
+                cbar_plot.ax.set_yticklabels(
+                    [r'$1\sigma$', r'$2\sigma$', r'$3\sigma$'])
+            break
+        except RuntimeError:
+            pass
     fig = adjust_spacing(fig, gs)
     return fig
 
