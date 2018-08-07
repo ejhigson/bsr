@@ -36,14 +36,15 @@ def get_default_prior(func, nfunc, **kwargs):
     nfunc_min = kwargs.pop('nfunc_min', 1)
     global_bias = kwargs.pop('global_bias', False)
     adaptive = kwargs.pop('adaptive', False)
-    w_sigma_default = kwargs.pop('w_sigma_default', 10)
+    w_sigma_default = kwargs.pop('w_sigma_default', 5)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     assert not global_bias
     # specify default priors
     if func.__name__[:2] == 'nn':
         # in this case nfunc is the list of numbers of nodes
-        return NNPrior(nfunc, nfunc_min=nfunc_min, adaptive=adaptive)
+        return NNPrior(nfunc, nfunc_min=nfunc_min, adaptive=adaptive,
+                       w_sigma_default=w_sigma_default)
     elif func.__name__ == 'adfam_gg_ta_1d':
         assert adaptive
         # Need to explicitly provide all args rather than use **kwargs as
@@ -403,7 +404,7 @@ class NNPrior(BlockPrior):
     def __init__(self, n_nodes, **kwargs):
         self.adaptive = kwargs.pop('adaptive', False)
         self.use_hyper = kwargs.pop('use_hyper', True)
-        self.w_sigma_default = kwargs.pop('w_sigma_default', 10)
+        self.w_sigma_default = kwargs.pop('w_sigma_default', 5)
         nfunc_min = kwargs.pop('nfunc_min', 1)
         if kwargs:
             raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))

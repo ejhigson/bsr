@@ -89,7 +89,7 @@ def plot_bayes(df, **kwargs):
     return fig
 
 
-def plot_runs(likelihood_list, run_list, nfunc_list, **kwargs):
+def plot_runs(likelihood_list, run_list, nfunc_list=None, **kwargs):
     """Wrapper for plotting ns runs (automatically tests if they are
     1d or 2d)."""
     adfam = kwargs.get('adfam', False)
