@@ -24,8 +24,9 @@ def plot_bayes(df, **kwargs):
     assert len(df.index.names) == 2
     assert df.index.names[-1] == 'result type', df.index.names
     adfam = kwargs.pop('adfam', False)
-    method_list = kwargs.pop('method_list',
-                             list(set(df.index.get_level_values(0))))
+    method_list = kwargs.pop(
+        'method_list',
+        sort_method_list(list(set(df.index.get_level_values(0)))))
     title = kwargs.pop('title', 'log posterior odds ratios')
     ymin = kwargs.pop('ymin', -10)
     figsize = kwargs.pop('figsize', (3, 2))
@@ -39,6 +40,7 @@ def plot_bayes(df, **kwargs):
     bar_width = tot_width / len(method_list)
     bar_centres = np.arange(len(method_list)) * bar_width
     bar_centres -= (tot_width - bar_width) * 0.5
+    print(bar_centres)
     ind = np.arange(len(df.columns))  # the x locations for the groups
     bars = []
     labels = []
@@ -56,7 +58,7 @@ def plot_bayes(df, **kwargs):
         labels.append(label)
         # plot bar
         bars.append(ax.bar(
-            ind - bar_centres[i], df.loc[(method, 'value')], bar_width,
+            ind + bar_centres[i], df.loc[(method, 'value')], bar_width,
             yerr=df.loc[(method, 'uncertainty')], color=colors[i]))
     if title is not None:
         ax.set_title(title)
@@ -66,8 +68,10 @@ def plot_bayes(df, **kwargs):
         assert list(df.columns) == list(range(1, len(df.columns) + 1)), (
             df.columns)
         n_per_fam = len(df.columns) // 2
-        xlabels = ['{},{}'.format(1 + int(i) // n_per_fam, int(i) % n_per_fam)
-                   for i in df.columns]
+        xlabels = []
+        for t in [1, 2]:
+            for b in range(1, n_per_fam + 1):
+                xlabels.append('{},{}'.format(t, b))
         fig.axes[0].set_xticklabels(xlabels)
         fig.axes[0].axvline(x=n_per_fam - 0.5, color='black', linestyle=':')
         ax.set_xlabel('family and number $T,B$')
@@ -488,6 +492,22 @@ def fgivenx_plot(func, x, thetas, ax, **kwargs):
             ('ValueError in compute_pmf. Expected # samples={}'.format(
                 np.sum(weights) / weights.max())), UserWarning)
         return None
+
+
+def sort_method_list(unsorted):
+    """Sort methods so vanilla runs come before adaptive runs and standard
+    nested sampling comes before dynamic nested sampling."""
+    out = []
+    out += sorted([meth for meth in unsorted
+                   if ('False' in meth and 'None' in meth)])
+    out += sorted([meth for meth in unsorted
+                   if ('False' in meth and 'None' not in meth)])
+    out += sorted([meth for meth in unsorted
+                   if ('True' in meth and 'None' in meth)])
+    out += sorted([meth for meth in unsorted
+    	           if ('True' in meth and 'None' not in meth)])
+    assert set(out) == set(unsorted), [set(out), set(unsorted)]
+    return out
 
 
 def plot_prior(likelihood, nsamples):
