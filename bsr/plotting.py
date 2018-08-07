@@ -15,6 +15,7 @@ import nestcheck.parallel_utils
 import bsr.priors
 import bsr.basis_functions as bf
 import bsr.results_utils
+import bsr.results_tables
 
 
 def plot_bayes(df, **kwargs):
@@ -261,21 +262,15 @@ def plot_1d_adaptive_multi(func, run, **kwargs):
     basis functions from a 1d adaptive run."""
     nfunc_list = kwargs.pop('nfunc_list')
     adfam = kwargs.pop('adfam', False)
-    inds_list = []
-    if not adfam:
-        funcs = [func] * len(nfunc_list)
-        samp_nfuncs = np.round(run['theta'][:, 0]).astype(int)
-        for nf in nfunc_list:
-            inds_list.append((samp_nfuncs == nf))
+    if adfam:
+        nfam_list = [1, 2]
     else:
-        funcs = [func] * 2 * len(nfunc_list)
-        samp_nfam = np.round(run['theta'][:, 0]).astype(int)
-        samp_nfuncs = np.round(run['theta'][:, 1]).astype(int)
-        for nfa in [1, 2]:
-            for nfu in nfunc_list:
-                inds_list.append(np.logical_and(
-                    (samp_nfuncs == nfu), (samp_nfam == nfa)))
-
+        nfam_list = [None]
+    inds_list = []
+    for nfam in nfam_list:
+        for nfunc in nfunc_list:
+            inds_list.append(bsr.results_tables.select_adaptive_inds(
+                run['theta'], nfunc, nfam=nfam))
     logw = nestcheck.ns_run_utils.get_logw(run)
     samples = []
     weights = []
@@ -283,7 +278,7 @@ def plot_1d_adaptive_multi(func, run, **kwargs):
         samples.append(run['theta'][inds, :])
         logw_temp = logw[inds]
         weights.append(np.exp(logw_temp - logw_temp.max()))
-    return plot_1d_grid(funcs, samples, weights, **kwargs)
+    return plot_1d_grid([func] * len(samples), samples, weights, **kwargs)
 
 
 def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many-branches,too-many-statements
@@ -344,7 +339,7 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many
                         xerr=data['x_error_sigma'], fmt='none',
                         ecolor=data_color)
         elif plot_data:  # for i >= 2
-            cbar_list = (fgivenx_plot(
+            cbar_list.append(fgivenx_plot(
                 funcs[i - 2], x, samples[i - 2], ax, weights=weights[i - 2],
                 logzs=logzs[i - 2], y=x, **kwargs))
             # # plot MAP

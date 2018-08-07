@@ -22,21 +22,25 @@ def adaptive_logz(run, logw=None, nfunc=1, adfam_t=None):
         logw = nestcheck.ns_run_utils.get_logw(run)
     if isinstance(nfunc, list):
         nfunc = nfunc[-1]
-    if adfam_t is None:
-        vals = run['theta'][:, 0]
-        logw_to_use = logw
-    else:
-        assert adfam_t in [1, 2], adfam_t
-        vals_t = run['theta'][:, 0]
-        inds_t = (((adfam_t - 0.5) <= vals_t) & (vals_t < (adfam_t + 0.5)))
-        vals = run['theta'][inds_t, :]
-        logw_to_use = logw[inds_t]
-    points = logw_to_use[((nfunc - 0.5) <= vals) & (vals < (nfunc + 0.5))]
+    points = logw[select_adaptive_inds(run['theta'], nfunc, nfam=adfam_t)]
     if points.shape == (0,):
         return -np.inf
     else:
         return scipy.special.logsumexp(points)
 
+
+def select_adaptive_inds(theta, nfunc, nfam=None):
+    """Returns boolian mask of theta components which have the input B (and
+    optionally also T) values.
+    """
+    if nfam is None:
+        samp_nfunc = np.round(theta[:, 0]).astype(int)
+        return samp_nfunc == nfunc
+    else:
+        samp_nfam = np.round(theta[:, 0]).astype(int)
+        samp_nfunc = np.round(theta[:, 1]).astype(int)
+        return np.logical_and((samp_nfunc == nfunc),
+                              (samp_nfam == nfam))
 
 def get_results_df(results_dict, **kwargs):
     """get results dataframe."""
@@ -130,24 +134,30 @@ def get_bayes_df(run_list, adaptive, run_list_sep, **kwargs):
         # vstack so each row represents a run and each column a number of
         # functions
         bayes_split_vals = np.vstack(bayes_split_vals)
-        assert (bayes_split_vals.shape ==
-                (len(run_list_sep[0]), len(nfunc_list))), (
-                    bayes_split_vals.shape)
         bayes_split = np.mean(bayes_split_vals, axis=0)
         bayes_split_unc = np.std(bayes_split_vals, ddof=1, axis=0)
         bayes_split_unc /= np.sqrt(len(run_list_sep[0]))
-        assert bayes_split.shape == (len(nfunc_list),)
-        assert bayes_split_unc.shape == (len(nfunc_list),)
+        assert bayes_split_vals.shape[0] == len(run_list_sep[0])
+        expected_nbayes = len(nfunc_list)
+        if adfam:
+            expected_nbayes *= 2
+        assert bayes_split.shape[0] == expected_nbayes
+        assert bayes_split_unc.shape[0] == expected_nbayes
     bayes -= bayes.max()
     bayes_split -= bayes_split.max()
+    assert bayes.shape == bayes_unc.shape, [bayes.shape, bayes_unc.shape]
+    assert bayes.shape == bayes_split.shape, [bayes.shape, bayes_split.shape]
+    assert bayes.shape == bayes_split_unc.shape, (
+        [bayes.shape, bayes_split_unc.shape])
+    columns = list(range(1, bayes.shape[0] + 1))
     # Now put into df
     df_comb = pd.DataFrame(np.vstack([bayes, bayes_unc]),
                            index=['value', 'uncertainty'],
-                           columns=nfunc_list)
+                           columns=columns)
     df_comb['calculation type'] = 'odds comb'
     df_split = pd.DataFrame(np.vstack([bayes_split, bayes_split_unc]),
                             index=['value', 'uncertainty'],
-                            columns=nfunc_list)
+                            columns=columns)
     df_split['calculation type'] = 'odds split'
     df = pd.concat([df_comb, df_split])
     df.index.name = 'result type'
