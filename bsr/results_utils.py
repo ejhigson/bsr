@@ -50,27 +50,6 @@ def load_data(problem_tups, method_tups, inds, **kwargs):
     return results_dict
 
 
-def load_adfam_data(problem_tups, method_tups, inds):
-    """Special loading function for adaptive family likelihood."""
-    vpts = []
-    for pt in problem_tups:
-        assert pt[0].__name__ == 'adfam_gg_ta_1d', pt[0]
-        vpts.append((bf.gg_1d, pt[1], pt[2]))
-        vpts.append((bf.ta_1d, pt[1], pt[2]))
-    ad_dict = load_data(problem_tups, [mt for mt in method_tups if mt[0]],
-                        inds)
-    v_dict = load_data(vpts, [mt for mt in method_tups if not mt[0]], inds)
-    for pt in problem_tups:
-        for mt in [mt for mt in method_tups if not mt[0]]:
-            ad_dict[get_problem_key(*pt)][mt] = {}
-            k1 = ('gg_1d', pt[1].__name__, pt[2])
-            k2 = ('ta_1d', pt[1].__name__, pt[2])
-            for key in ['likelihood_list', 'run_list', 'run_list_sep']:
-                ad_dict[get_problem_key(*pt)][mt][key] = \
-                    v_dict[k1][mt][key] + v_dict[k2][mt][key]
-    return ad_dict
-
-
 def nfunc_list_union(problem_data):
     """Given dict of results for different methods on a given problem, find
     union of all the nfuncs considered."""
