@@ -60,12 +60,22 @@ def plot_bayes(df, **kwargs):
     if title is not None:
         ax.set_title(title)
     ax.set_xticks(ind)
-    if nn_xlabel:
-        xlabel = 'nodes per hidden layer $B$'
+    if adfam:
+        assert len(df.columns) % 2 == 0, len(df.columns)
+        assert list(df.columns) == list(range(1, len(df.columns) + 1)), (
+            df.columns)
+        n_per_fam = len(df.columns) // 2
+        xlabels = ['{},{}'.format(1 + int(i) // n_per_fam, int(i) % n_per_fam)
+                   for i in df.columns]
+        fig.axes[0].set_xticklabels(xlabels)
+        fig.axes[0].axvline(x=n_per_fam - 0.5, color='black', linestyle=':')
+        ax.set_xlabel('family and number $T,B$')
     else:
-        xlabel = 'number of basis functions $B$'
-    ax.set_xlabel(xlabel)
-    ax.set_xticklabels(['${}$'.format(nf) for nf in df.columns])
+        if nn_xlabel:
+            ax.set_xlabel('nodes per hidden layer $B$')
+        else:
+            ax.set_xlabel('number of basis functions $B$')
+        ax.set_xticklabels(['${}$'.format(nf) for nf in df.columns])
     if ymin == -10:
         ax.set_yticks([0, -5, -10])
     ax.legend([ba[0] for ba in bars], labels)
@@ -75,11 +85,6 @@ def plot_bayes(df, **kwargs):
               'left': (0.3 / figsize[0]),
               'right': 1 - (0.01 / figsize[0])}
     fig.subplots_adjust(**adjust)
-    if adfam:
-        xlabels = ['1,{}'.format(i) for i in range(1, 6)]
-        xlabels += ['2,{}'.format(i) for i in range(1, 6)]
-        fig.axes[0].set_xticklabels(xlabels)
-        fig.axes[0].axvline(x=4.5, color='black', linestyle=':')
     return fig
 
 

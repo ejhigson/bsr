@@ -41,15 +41,12 @@ def adaptive_logz(run, logw=None, nfunc=1, adfam_t=None):
 def get_results_df(results_dict, **kwargs):
     """get results dataframe."""
     n_simulate = kwargs.pop('n_simulate', 10)
-    adfam = kwargs.pop('adfam', False)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     df_list = []
     for prob_key, prob_data in results_dict.items():
-        if adfam:
-            nfunc_list = list(range(1, 11))
-        else:
-            nfunc_list = bsr.results_utils.nfunc_list_union(prob_data)
+        adfam = ('adfam' in prob_key[0])
+        nfunc_list = bsr.results_utils.nfunc_list_union(prob_data)
         if any(isinstance(nf, list) for nf in nfunc_list):
             assert all(isinstance(nf, list) for nf in nfunc_list), nfunc_list
             nfunc_list = [nf[-1] for nf in nfunc_list]
@@ -116,9 +113,9 @@ def get_bayes_df(run_list, adaptive, run_list_sep, **kwargs):
         assert len(run_list) == 1
         if adfam:
             funcs = [functools.partial(adaptive_logz, nfunc=nf, adfam_t=1)
-                     for nf in range(1, 6)]
+                     for nf in nfunc_list]
             funcs += [functools.partial(adaptive_logz, nfunc=nf, adfam_t=2)
-                      for nf in range(1, 6)]
+                      for nf in nfunc_list]
         else:
             funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in
                      nfunc_list]
