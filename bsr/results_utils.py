@@ -157,17 +157,31 @@ def make_base_dict(problem_tups, method_tups, **kwargs):
                 fit_func, adaptive, data, nfunc_max_dict)
             likelihood_list = []
             prior_list = []
-            for nfunc in nfunc_list:
-                # Make likelihood, prior and run func
-                likelihood_list.append(bsr.likelihoods.FittingLikelihood(
-                    data, fit_func, nfunc, adaptive=adaptive))
-                prior_list.append(bsr.priors.get_default_prior(
-                    fit_func, nfunc, adaptive=adaptive))
-            output[problem_key][method_key]['nfunc_list'] = nfunc_list
+            if fit_func.__name__[:5] == 'adfam' and not adaptive:
+                assert nfunc_list == list(range(1, 6))
+                for nfunc in nfunc_list:
+                    likelihood_list.append(bsr.likelihoods.FittingLikelihood(
+                        data, bf.gg_1d, nfunc, adaptive=adaptive))
+                    prior_list.append(bsr.priors.get_default_prior(
+                        bf.gg_1d, nfunc, adaptive=adaptive))
+                for nfunc in nfunc_list:
+                    likelihood_list.append(bsr.likelihoods.FittingLikelihood(
+                        data, bf.ta_1d, nfunc, adaptive=adaptive))
+                    prior_list.append(bsr.priors.get_default_prior(
+                        bf.ta_1d, nfunc, adaptive=adaptive))
+                output[problem_key][method_key]['nfunc_list'] = list(
+                    range(1, 11))
+            else:
+                for nfunc in nfunc_list:
+                    # Make likelihood, prior and run func
+                    likelihood_list.append(bsr.likelihoods.FittingLikelihood(
+                        data, fit_func, nfunc, adaptive=adaptive))
+                    prior_list.append(bsr.priors.get_default_prior(
+                        fit_func, nfunc, adaptive=adaptive))
+                output[problem_key][method_key]['nfunc_list'] = nfunc_list
             output[problem_key][method_key]['likelihood_list'] = \
                 likelihood_list
-            output[problem_key][method_key]['prior_list'] = \
-                prior_list
+            output[problem_key][method_key]['prior_list'] = prior_list
     return output
 
 
