@@ -40,7 +40,6 @@ def plot_bayes(df, **kwargs):
     bar_width = tot_width / len(method_list)
     bar_centres = np.arange(len(method_list)) * bar_width
     bar_centres -= (tot_width - bar_width) * 0.5
-    print(bar_centres)
     ind = np.arange(len(df.columns))  # the x locations for the groups
     bars = []
     labels = []
@@ -118,7 +117,8 @@ def plot_runs(likelihood_list, run_list, nfunc_list=None, **kwargs):
         fig = plot_1d_runs(likelihood_list, run_list, nfunc_list=nfunc_list,
                            **kwargs)
     elif kwargs['data']['y'].ndim == 2:
-        kwargs.pop('ntrim', None)
+        kwargs.pop('ntrim', None)  # remove as no longer needed
+        kwargs.pop('adfam', None)  # remove as no longer needed
         fig = plot_2d_runs(likelihood_list, run_list, **kwargs)
     return fig
 
