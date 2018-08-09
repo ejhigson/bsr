@@ -96,6 +96,7 @@ def plot_runs(likelihood_list, run_list, nfunc_list=None, **kwargs):
     """Wrapper for plotting ns runs (automatically tests if they are
     1d or 2d)."""
     adfam = kwargs.get('adfam', False)
+    true_signal = kwargs.pop('true_signal', True)
     if not isinstance(likelihood_list, list):
         likelihood_list = [likelihood_list]
     if not isinstance(run_list, list):
@@ -105,7 +106,8 @@ def plot_runs(likelihood_list, run_list, nfunc_list=None, **kwargs):
     if 'titles' not in kwargs:
         kwargs['titles'] = get_default_titles(
             likelihood_list, kwargs.get('plot_data', False),
-            kwargs.get('combine', True), nfunc_list, adfam=adfam)
+            kwargs.get('combine', True), nfunc_list, adfam=adfam,
+            true_signal=true_signal)
     if len(likelihood_list) >= 1:
         for like in likelihood_list[1:]:
             try:
@@ -124,11 +126,19 @@ def plot_runs(likelihood_list, run_list, nfunc_list=None, **kwargs):
 
 
 def get_default_titles(likelihood_list, combine, plot_data,
-                       nfunc_list, adfam=False):
+                       nfunc_list, **kwargs):
     """Get some default titles for the plots."""
+    adfam = kwargs.pop('adfam', False)
+    true_signal = kwargs.pop('true_signal', True)
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     titles = []
     if plot_data:
-        titles += ['true signal', 'noisy data']
+        if true_signal:
+            titles.append('true signal')
+        else:
+            titles.append('signal')
+        titles.append('noisy data')
     if combine:
         titles.append('fit')
     else:
@@ -241,11 +251,13 @@ def plot_colormap(y_list, x1, x2, **kwargs):
         ax = plt.subplot(gs[row, col])
         im = ax.pcolor(x1, x2, y, vmin=0, vmax=1, linewidth=0,
                        rasterized=True)
-        ax.set(aspect='equal')
         ax.set_xticks([])
         ax.set_xticklabels([])
         ax.set_yticks([])
         ax.set_yticklabels([])
+        y_adjust = 0.02  # remove tidy white strip at bottom of plot
+        ax.set_ylim([y_adjust, 1])
+        ax.set(aspect='equal')
         if titles is not None:
             ax.set_title(titles[i])
         if row == nrow - 1:
@@ -257,6 +269,7 @@ def plot_colormap(y_list, x1, x2, **kwargs):
             cax.set(aspect=colorbar_aspect)
         if titles is not None:
             ax.set_title(titles[i])
+    print(x1, x2)
     fig = adjust_spacing(fig, gs)
     return fig
 
