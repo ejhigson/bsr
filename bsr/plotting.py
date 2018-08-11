@@ -56,9 +56,11 @@ def plot_bayes(df, **kwargs):
             label += ' dg={}'.format(method.split('_')[1])
         labels.append(label)
         # plot bar
+        values = df.loc[(method, 'value')]
+        unc = df.loc[(method, 'uncertainty')]
         bars.append(ax.bar(
-            ind + bar_centres[i], df.loc[(method, 'value')], bar_width,
-            yerr=df.loc[(method, 'uncertainty')], color=colors[i]))
+            ind + bar_centres[i], values - values.max(), bar_width,
+            yerr=unc, color=colors[i]))
     if title is not None:
         ax.set_title(title)
     ax.set_xticks(ind)
