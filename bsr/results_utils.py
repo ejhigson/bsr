@@ -24,23 +24,32 @@ def load_data(problem_tups, method_tups, inds, **kwargs):
             for likelihood in likelihood_list:
                 root = likelihood.get_file_root(nlive, num_repeats,
                                                 dynamic_goal)
-                try:
-                    batch = nestcheck.data_processing.batch_process_data(
-                        [root + '_' + str(i).zfill(3) for i in inds],
-                        parallel=False, parallel_warning=False,
-                        tqdm_kwargs={'disable': True},
-                        errors_to_handle=AssertionError)
-                    if sep_runs:
-                        run_list_sep.append(batch)
-                    run_list.append(nestcheck.ns_run_utils.combine_ns_runs(
-                        batch))
-                except OSError as err:
-                    print(err)
-            if len(likelihood_list) == len(run_list):
+                batch = nestcheck.data_processing.batch_process_data(
+                    [root + '_' + str(i).zfill(3) for i in inds],
+                    parallel=False, parallel_warning=False,
+                    tqdm_kwargs={'disable': True},
+                    errors_to_handle=(AssertionError, OSError))
+                if sep_runs:
+                    run_list_sep.append(batch)
+                run_list.append(nestcheck.ns_run_utils.combine_ns_runs(
+                    batch))
+            try:
+                assert len(likelihood_list) == len(run_list)
                 results_dict[prob_key][method_key]['run_list'] = run_list
-                results_dict[prob_key][method_key]['run_list_sep'] = \
-                    run_list_sep
-            else:
+                if run_list_sep:
+                    assert all([len(rl) == len(inds) for rl in run_list_sep])
+                    sep_list = []
+                    # Reformat run_list_sep so each element has same format as
+                    # run list
+                    for nrep in range(len(inds)):
+                        sep_list.append([rl[nrep] for rl in run_list_sep])
+                    assert len(sep_list) == len(inds)
+                    assert all([len(rl) == len(run_list) for rl in sep_list])
+                    results_dict[prob_key][method_key]['run_list_sep'] = \
+                        sep_list
+            except AssertionError:
+                if not sep_list:  # dont catch problems in sep_list
+                    raise
                 print('runs missing for method_key={}'.format(method_key))
                 # delete method keys with no data
                 del results_dict[prob_key][method_key]

@@ -8,6 +8,7 @@ import nestcheck.estimators
 import nestcheck.ns_run_utils
 import nestcheck.error_analysis
 import nestcheck.parallel_utils
+import nestcheck.pandas_functions
 import nestcheck.io_utils
 import bsr.priors
 import bsr.results_utils
@@ -29,6 +30,107 @@ def adaptive_logz(run, logw=None, nfunc=1, adfam_t=None):
         return scipy.special.logsumexp(points)
 
 
+def get_log_odds(run_list, nfunc_list, **kwargs):
+    """Returns array of log odds ratios"""
+    adfam = kwargs.pop('adfam', False)
+    adaptive = kwargs.pop('adaptive', len(run_list) == 1)
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    # Get funcs
+    if adaptive:
+        assert len(run_list) == 1, len(run_list)
+        if adfam:
+            funcs = [functools.partial(adaptive_logz, nfunc=nf, adfam_t=1)
+                     for nf in nfunc_list]
+            funcs += [functools.partial(adaptive_logz, nfunc=nf, adfam_t=2)
+                      for nf in nfunc_list]
+        else:
+            funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in
+                     nfunc_list]
+    else:
+        funcs = [nestcheck.estimators.logz]
+    # Calculate values
+    logzs = [nestcheck.ns_run_utils.run_estimators(run, funcs) for run in
+             run_list]
+    logzs = np.concatenate(logzs)
+    log_odds = logzs - scipy.special.logsumexp(logzs)
+    return log_odds
+
+
+def get_log_odds_bs_resamp(run_list, nfunc_list, n_simulate=10, **kwargs):
+    """BS resamples of get_log_odds."""
+    threads_list = [nestcheck.ns_run_utils.get_run_threads(run) for run in
+                    run_list]
+    out_list = []
+    for _ in range(n_simulate):
+        run_list_temp = [nestcheck.error_analysis.bootstrap_resample_run(
+            {}, threads) for threads in threads_list]
+        out_list.append(get_log_odds(run_list_temp, nfunc_list, **kwargs))
+    return np.vstack(out_list)
+
+
+def get_bayes_df(run_list, run_list_sep, **kwargs):
+    """Dataframe of Bayes factors."""
+    n_simulate = kwargs.pop('n_simulate', 10)
+    adaptive = kwargs.pop('adaptive')
+    nfunc_list = kwargs.pop('nfunc_list')
+    adfam = kwargs.pop('adfam')
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    log_odds = get_log_odds(run_list, nfunc_list, adaptive=adaptive,
+                            adfam=adfam)
+    columns = list(range(1, log_odds.shape[0] + 1))
+    log_odds_bs = get_log_odds_bs_resamp(
+        run_list, nfunc_list, adaptive=adaptive, adfam=adfam,
+        n_simulate=n_simulate)
+    df = nestcheck.pandas_functions.summary_df_from_array(
+        log_odds_bs, columns)
+    df = df.loc[df.index.get_level_values('calculation type') == 'std', :]
+    df.index.set_levels('log odds ' + df.index.levels[0].astype(str),
+                        level=0, inplace=True)
+    df.loc[('log odds', 'value'), :] = log_odds
+    df.loc[('log odds', 'uncertainty'), :] = \
+        df.loc[('log odds std', 'value'), :]
+    df.loc[('odds', 'value'), :] = np.exp(log_odds)
+    df.loc[('odds', 'uncertainty'), :] = np.std(
+        np.exp(log_odds_bs), axis=0, ddof=1)
+    # add split values
+    sep_log_odds = []
+    sep_bs_stds = []
+    for rl in run_list_sep:
+        sep_log_odds.append(get_log_odds(
+            rl, nfunc_list, adaptive=adaptive, adfam=adfam))
+        bs_temp = get_log_odds_bs_resamp(
+            rl, nfunc_list, adaptive=adaptive, adfam=adfam,
+            n_simulate=n_simulate)
+        # print(bs_temp, np.mean(bs_temp, axis=0))
+        sep_bs_stds.append(np.std(bs_temp, axis=0, ddof=1))
+    sep_df = nestcheck.pandas_functions.summary_df_from_list(
+        sep_log_odds, columns)
+    sep_df.index.set_levels(
+        'log odds sep ' + sep_df.index.levels[0].astype(str),
+        level=0, inplace=True)
+    df = pd.concat([df, sep_df])
+    # Add sep runs implementation errors
+    sep_bs = nestcheck.pandas_functions.summary_df_from_list(
+        sep_bs_stds, columns)
+    print(sep_bs)
+    for rt in ['value', 'uncertainty']:
+        df.loc[('sep bs std mean', rt), :] = sep_bs.loc[('mean', rt)]
+    # get implementation stds
+    imp_std, imp_std_unc, imp_frac, imp_frac_unc = \
+        nestcheck.error_analysis.implementation_std(
+            df.loc[('log odds sep std', 'value')].values,
+            df.loc[('log odds sep std', 'uncertainty')].values,
+            df.loc[('sep bs std mean', 'value')].values,
+            df.loc[('sep bs std mean', 'uncertainty')].values)
+    df.loc[('sep implementation std', 'value'), df.columns] = imp_std
+    df.loc[('sep implementation std', 'uncertainty'), df.columns] = imp_std_unc
+    df.loc[('sep implementation std frac', 'value'), :] = imp_frac
+    df.loc[('sep implementation std frac', 'uncertainty'), :] = imp_frac_unc
+    return df
+
+
 def select_adaptive_inds(theta, nfunc, nfam=None):
     """Returns boolian mask of theta components which have the input B (and
     optionally also T) values.
@@ -41,6 +143,7 @@ def select_adaptive_inds(theta, nfunc, nfam=None):
         samp_nfunc = np.round(theta[:, 1]).astype(int)
         return np.logical_and((samp_nfunc == nfunc),
                               (samp_nfam == nfam))
+
 
 def get_results_df(results_dict, **kwargs):
     """get results dataframe."""
@@ -84,7 +187,7 @@ def get_method_df(meth_data, adaptive, **kwargs):
     return df
 
 
-def get_bayes_df(run_list, adaptive, run_list_sep, **kwargs):
+def get_bayes_df_old(run_list, adaptive, run_list_sep, **kwargs):
     """Dataframe of Bayes factors."""
     n_simulate = kwargs.pop('n_simulate')
     nfunc_list = kwargs.pop('nfunc_list')
