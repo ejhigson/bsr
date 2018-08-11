@@ -126,7 +126,7 @@ def get_bayes_df(run_list, run_list_sep, **kwargs):
     df.loc[('sep implementation std', 'uncertainty'), df.columns] = imp_std_unc
     df.loc[('sep implementation std frac', 'value'), :] = imp_frac
     df.loc[('sep implementation std frac', 'uncertainty'), :] = imp_frac_unc
-    return df
+    return df.sort_index()
 
 
 def select_adaptive_inds(theta, nfunc, nfam=None):
@@ -146,37 +146,63 @@ def select_adaptive_inds(theta, nfunc, nfam=None):
 def get_results_df(results_dict, **kwargs):
     """get results dataframe."""
     n_simulate = kwargs.pop('n_simulate', 10)
-    if kwargs:
-        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     df_list = []
     for prob_key, prob_data in results_dict.items():
+        meth_df_list = []
         adfam = ('adfam' in prob_key[0])
         nfunc_list = bsr.results_utils.nfunc_list_union(prob_data)
         if any(isinstance(nf, list) for nf in nfunc_list):
             assert all(isinstance(nf, list) for nf in nfunc_list), nfunc_list
             nfunc_list = [nf[-1] for nf in nfunc_list]
-        prob_key_str = bsr.results_utils.root_given_key(prob_key)
+        prob_str = bsr.results_utils.root_given_key(prob_key)
         for meth_key, meth_data in prob_data.items():
-            meth_key_str = bsr.results_utils.root_given_key(meth_key)
+            meth_str = bsr.results_utils.root_given_key(meth_key)
             save_name = 'cache/results_df_{}_{}_{}sim'.format(
-                prob_key_str, meth_key_str, n_simulate)
+                prob_str, meth_str, n_simulate)
             df_temp = get_method_df(
                 meth_data, adaptive=meth_key[0], save_name=save_name,
                 n_simulate=n_simulate, nfunc_list=nfunc_list,
-                adfam=adfam)
-            df_temp['method key'] = meth_key_str
-            df_temp['problem key'] = prob_key_str
-            df_list.append(df_temp)
-    df = pd.concat(df_list)
-    names = list(df.index.names)
-    df.set_index(['problem key', 'method key'], append=True, inplace=True)
-    return df.reorder_levels(['problem key', 'method key'] + names)
+                adfam=adfam, **kwargs)
+            df_temp['method key'] = meth_str
+            df_temp['problem key'] = prob_str
+            meth_df_list.append(df_temp)
+        df = pd.concat(meth_df_list)
+        names = list(df.index.names)
+        df.set_index(['problem key', 'method key'], append=True, inplace=True)
+        df = df.reorder_levels(['problem key', 'method key'] + names)
+        # Add eff gains
+        vanilla_keys = [key for key in prob_data.keys() if not key[0]]
+        if len(vanilla_keys) != 1:
+            print('not adding gains as no single vanilla method',
+                  prob_data.keys())
+        else:
+            van_str = bsr.results_utils.root_given_key(vanilla_keys[0])
+            van_nsamp = df.loc[(prob_str, van_str, 'nsample', 'value')]
+            for measure in ['log odds std', 'log odds sep std']:
+                gain_type = measure.replace('std', 'gain')
+                van_val = df.loc[(prob_str, van_str, measure, 'value')]
+                van_unc = df.loc[(prob_str, van_str, measure, 'uncertainty')]
+                for meth_key in prob_data.keys():
+                    meth_str = bsr.results_utils.root_given_key(meth_key)
+                    meth_nsamp = df.loc[(prob_str, meth_str, 'nsample', 'value')]
+                    meth_val = df.loc[(prob_str, meth_str, measure, 'value')]
+                    meth_unc = df.loc[(prob_str, meth_str, measure, 'uncertainty')]
+                    nsamp_ratio = van_nsamp / meth_nsamp
+                    gain, gain_unc = nestcheck.pandas_functions.get_eff_gain(
+                        van_val, van_unc, meth_val, meth_unc,
+                        adjust=nsamp_ratio)
+                    df.loc[(prob_str, meth_str, gain_type, 'value'), :] = gain
+                    df.loc[(prob_str, meth_str, gain_type, 'uncertainty'), :] = \
+                        gain_unc
+        df_list.append(df)
+    return pd.concat(df_list)
 
 
 @nestcheck.io_utils.save_load_result
 def get_method_df(meth_data, **kwargs):
     """Results for a given method."""
-    df = get_bayes_df(meth_data['run_list'], meth_data['run_list_sep'], **kwargs)
+    df = get_bayes_df(meth_data['run_list'], meth_data['run_list_sep'],
+                      **kwargs)
     nsample = sum([run['logl'].shape[0] for run in meth_data['run_list']])
     nlike = sum([run['output']['nlike'] for run in meth_data['run_list']])
     df.loc[('nsample', 'value'), :] = nsample
