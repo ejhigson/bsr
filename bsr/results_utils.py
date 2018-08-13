@@ -31,14 +31,18 @@ def load_data(problem_tups, method_tups, inds, **kwargs):
                     errors_to_handle=(AssertionError, OSError))
                 if sep_runs:
                     run_list_sep.append(batch)
-                run_list.append(nestcheck.ns_run_utils.combine_ns_runs(
-                    batch))
+                try:
+                    run_list.append(nestcheck.ns_run_utils.combine_ns_runs(
+                        batch))
+                except ValueError:
+                    # Occurs when no runs loaded
+                    pass
             try:
+                sep_list = []
                 assert len(likelihood_list) == len(run_list)
                 results_dict[prob_key][method_key]['run_list'] = run_list
                 if run_list_sep:
                     assert all([len(rl) == len(inds) for rl in run_list_sep])
-                    sep_list = []
                     # Reformat run_list_sep so each element has same format as
                     # run list
                     for nrep in range(len(inds)):
@@ -48,7 +52,7 @@ def load_data(problem_tups, method_tups, inds, **kwargs):
                     results_dict[prob_key][method_key]['run_list_sep'] = \
                         sep_list
             except AssertionError:
-                if not sep_list:  # dont catch problems in sep_list
+                if sep_list:  # dont catch problems in sep_list
                     raise
                 print('runs missing for method_key={}'.format(method_key))
                 # delete method keys with no data

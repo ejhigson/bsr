@@ -18,16 +18,24 @@ import bsr.results_utils
 import bsr.results_tables
 
 
-def plot_bayes(df, **kwargs):
+def plot_bars(df, **kwargs):
     """Make a bar chart of vanilla and adaptive Bayes factors, including their
     error bars."""
     assert len(df.index.names) == 2
     assert df.index.names[-1] == 'result type', df.index.names
     adfam = kwargs.pop('adfam', False)
+    log_ratios = kwargs.pop('log_ratios', True)
+    if log_ratios:
+        default_title = 'log posterior odds ratios'
+    else:
+        if adfam:
+            default_title = 'posterior distribution of $B,T$'
+        else:
+            default_title = 'posterior distribution of $B$'
     method_list = kwargs.pop(
         'method_list',
         sort_method_list(list(set(df.index.get_level_values(0)))))
-    title = kwargs.pop('title', 'log posterior odds ratios')
+    title = kwargs.pop('title', default_title)
     ymin = kwargs.pop('ymin', -10)
     figsize = kwargs.pop('figsize', (3, 2))
     colors = kwargs.pop('colors', ['lightgrey', 'grey', 'black', 'darkblue',
@@ -57,9 +65,11 @@ def plot_bayes(df, **kwargs):
         labels.append(label)
         # plot bar
         values = df.loc[(method, 'value')]
+        if log_ratios:
+            values -= values.max()
         unc = df.loc[(method, 'uncertainty')]
         bars.append(ax.bar(
-            ind + bar_centres[i], values - values.max(), bar_width,
+            ind + bar_centres[i], values, bar_width,
             yerr=unc, color=colors[i]))
     if title is not None:
         ax.set_title(title)
@@ -82,13 +92,29 @@ def plot_bayes(df, **kwargs):
         else:
             ax.set_xlabel('number of basis functions $B$')
         ax.set_xticklabels(['${}$'.format(nf) for nf in df.columns])
-    if ymin == -10:
-        ax.set_yticks([0, -5, -10])
+    if log_ratios:
+        ax.set_ylim([ymin, 0])
+        if ymin == -10:
+            ax.set_yticks([0, -5, -10])
+    else:
+        # Format limits
+        ax.set_ylim(bottom=0)
+        if ax.get_ylim()[1] > 1:
+            ax.set_ylim([0, 1])
+        else:
+            ax.set_ylim([0, ax.get_yticks()[-1]])
+        if ax.get_ylim()[1] == 1:
+            ax.set_yticks([0, 0.5, 1])
+        if adfam:
+            var = 'T,B'
+        else:
+            var = 'B'
+        # add y label
+        ax.set_ylabel(r'$P({}|\mathcal{{L}},\pi)$'.format(var))
     ax.legend([ba[0] for ba in bars], labels)
-    ax.set_ylim([ymin, 0])
     adjust = {'top': 1 - (0.2 / figsize[1]),
               'bottom': 0.4 / figsize[1],
-              'left': (0.3 / figsize[0]),
+              'left': (0.45 / figsize[0]),
               'right': 1 - (0.01 / figsize[0])}
     fig.subplots_adjust(**adjust)
     return fig
