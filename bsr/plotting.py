@@ -201,7 +201,6 @@ def plot_2d_runs(likelihood_list, run_list, **kwargs):
             run = run_list[0]
             samp_nfuncs = np.round(run['theta'][:, 0]).astype(int)
             nfunc_list = kwargs.pop('nfunc_list', list(np.unique(samp_nfuncs)))
-            print(nfunc_list)
             logw = nestcheck.ns_run_utils.get_logw(run)
             for nf in nfunc_list:
                 inds = np.where(samp_nfuncs == nf)[0]
@@ -268,15 +267,18 @@ def plot_colormap(y_list, x1, x2, **kwargs):
         col = i % ncol
         row = i // ncol
         ax = plt.subplot(gs[row, col])
-        im = ax.pcolor(x1, x2, y, vmin=0, vmax=1, linewidth=0,
-                       rasterized=True)
+        # NB: I can't get rid of the white lines between pixels without
+        # rasterized=True. Also white strip at bottom can only be removed by
+        # increasing the dpi
+        im = ax.pcolormesh(x1, x2, y, vmin=0, vmax=1,
+                           rasterized=True, snap=True,
+                           edgecolor='face', linewidth=0.0)
         ax.set_xticks([])
         ax.set_xticklabels([])
         ax.set_yticks([])
         ax.set_yticklabels([])
-        y_adjust = 0.02  # remove tidy white strip at bottom of plot
-        ax.set_ylim([y_adjust, 1])
-        ax.set(aspect='equal')
+        ax.set_ylim([0, 1])
+        ax.set_xlim([0, 1])
         if titles is not None:
             ax.set_title(titles[i])
         if row == nrow - 1:
@@ -285,10 +287,8 @@ def plot_colormap(y_list, x1, x2, **kwargs):
             ax.set_ylabel('$x_2$')
             cax = plt.subplot(gs[row, -1])
             plt.colorbar(im, cax=cax)
-            cax.set(aspect=colorbar_aspect)
         if titles is not None:
             ax.set_title(titles[i])
-    print(x1, x2)
     fig = adjust_spacing(fig, gs)
     return fig
 
@@ -392,7 +392,6 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many
         # -------------------------
         ax.set_xlim([x.min(), x.max()])
         ax.set_ylim([x.min(), x.max()])
-        # ax.set(aspect='equal')
         prune = 'upper' if col != (ncol - 1) else None
         # prune = None
         ax.xaxis.set_major_locator(
@@ -434,7 +433,7 @@ def adjust_spacing(fig, gs):
         hr = gs.get_height_ratios()
         gs.update(wspace=wspace)
         if len(hr) > 1:
-            gs.update(hspace=0.5)
+            gs.update(hspace=0.3)
     else:
         wr = [1]
     margins = {'top': 0.2, 'bottom': 0.4, 'left': 0.45, 'right': 0.3}
