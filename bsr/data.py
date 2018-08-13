@@ -153,40 +153,23 @@ def get_data_args(data_func, nfuncs):
         # the order is (with first arg sorted):
         # [a_1, mu1_1, mu2_1, s1_1, s2_1, b1_1, b2_1, rot angle]
         if nfuncs == 1:
-            data_args = [{'a': 0.8,
-                          'mu1': 0.6, 'mu2': 0.6,
-                          # 'sigma1': 0.1, 'sigma2': 0.1,
-                          # 'beta1': 4, 'beta2': 0.5,
-                          'sigma1': 0.1, 'sigma2': 0.2,
-                          'beta1': 2, 'beta2': 2,
-                          'omega': 0.1 * np.pi}]
+            data_args = [
+                {'a': 0.8, 'mu1': 0.6, 'mu2': 0.6, 'sigma1': 0.1, 'sigma2': 0.2,
+                 'beta1': 2, 'beta2': 2, 'omega': 0.1 * np.pi}]
         elif nfuncs == 2:
-            data_args = [{'a': 0.5,
-                          'mu1': 0.5, 'mu2': 0.4,
-                          'sigma1': 0.4, 'sigma2': 0.2,
-                          'beta1': 2, 'beta2': 2,
-                          'omega': 0},
-                         {'a': 0.8,
-                          'mu1': 0.5, 'mu2': 0.6,
-                          'sigma1': 0.1, 'sigma2': 0.1,
-                          'beta1': 2, 'beta2': 2,
-                          'omega': 0}]
+            data_args = [
+                {'a': 0.5, 'mu1': 0.5, 'mu2': 0.4, 'sigma1': 0.4, 'sigma2': 0.2,
+                 'beta1': 2, 'beta2': 2, 'omega': 0},
+                {'a': 0.8, 'mu1': 0.5, 'mu2': 0.6, 'sigma1': 0.1, 'sigma2': 0.1,
+                 'beta1': 2, 'beta2': 2, 'omega': 0}]
         elif nfuncs == 3:
-            data_args = [{'a': 0.5,
-                          'mu1': 0.3, 'mu2': 0.7,
-                          'sigma1': 0.2, 'sigma2': 0.2,
-                          'beta1': 2, 'beta2': 2,
-                          'omega': 0},
-                         {'a': 0.7,
-                          'mu1': 0.7, 'mu2': 0.6,
-                          'sigma1': 0.15, 'sigma2': 0.15,
-                          'beta1': 2, 'beta2': 2,
-                          'omega': 0},
-                         {'a': 0.9,
-                          'mu1': 0.4, 'mu2': 0.3,
-                          'sigma1': 0.1, 'sigma2': 0.1,
-                          'beta1': 2, 'beta2': 2,
-                          'omega': 0}]
+            data_args = [
+                {'a': 0.5, 'mu1': 0.3, 'mu2': 0.7, 'sigma1': 0.2, 'sigma2': 0.2,
+                 'beta1': 2, 'beta2': 2, 'omega': 0},
+                {'a': 0.7, 'mu1': 0.7, 'mu2': 0.6, 'sigma1': 0.15, 'sigma2': 0.15,
+                 'beta1': 2, 'beta2': 2, 'omega': 0},
+                {'a': 0.9, 'mu1': 0.4, 'mu2': 0.3,'sigma1': 0.1, 'sigma2': 0.1,
+                 'beta1': 2, 'beta2': 2, 'omega': 0}]
     try:
         data_args_list = []
         for name in bf.get_bf_param_names(data_func):

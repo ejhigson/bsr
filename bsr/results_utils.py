@@ -73,7 +73,7 @@ def label_given_method_str(method):
         assert method.split('_')[0] == 'False', method
         label += 'vanilla'
     if method.split('_')[1] != 'None':
-        label += ' dg={}'.format(method.split('_')[1])
+        label = 'dynamic ' + label
     return label
 
 
