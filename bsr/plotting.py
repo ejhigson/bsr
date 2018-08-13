@@ -53,16 +53,7 @@ def plot_bars(df, **kwargs):
     labels = []
     fig, ax = plt.subplots(figsize=figsize)
     for i, method in enumerate(method_list):
-        # get label
-        label = ''
-        if method.split('_')[0] == 'True':
-            label += 'adaptive'
-        else:
-            assert method.split('_')[0] == 'False', method
-            label += 'vanilla'
-        if method.split('_')[1] != 'None':
-            label += ' dg={}'.format(method.split('_')[1])
-        labels.append(label)
+        labels.append(bsr.results_utils.label_given_method_str(method))
         # plot bar
         values = df.loc[(method, 'value')]
         if log_ratios:

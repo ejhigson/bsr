@@ -63,6 +63,20 @@ def load_data(problem_tups, method_tups, inds, **kwargs):
     return results_dict
 
 
+def label_given_method_str(method):
+    """Get method labels for bar charts and tables."""
+    # get label
+    label = ''
+    if method.split('_')[0] == 'True':
+        label += 'adaptive'
+    else:
+        assert method.split('_')[0] == 'False', method
+        label += 'vanilla'
+    if method.split('_')[1] != 'None':
+        label += ' dg={}'.format(method.split('_')[1])
+    return label
+
+
 def nfunc_list_union(problem_data):
     """Given dict of results for different methods on a given problem, find
     union of all the nfuncs considered."""

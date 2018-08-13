@@ -59,14 +59,22 @@ def get_log_odds(run_list, nfunc_list, **kwargs):
 
 def get_log_odds_bs_resamp(run_list, nfunc_list, n_simulate=10, **kwargs):
     """BS resamples of get_log_odds."""
+    # NB thread list must be in same order as run list, so can't use parallel
+    # apply
     threads_list = [nestcheck.ns_run_utils.get_run_threads(run) for run in
                     run_list]
-    out_list = []
-    for _ in range(n_simulate):
-        run_list_temp = [nestcheck.error_analysis.bootstrap_resample_run(
-            {}, threads) for threads in threads_list]
-        out_list.append(get_log_odds(run_list_temp, nfunc_list, **kwargs))
+    out_list = nestcheck.parallel_utils.parallel_apply(
+        log_odds_bs_resamp_helper, list(range(n_simulate)),
+        func_args=(threads_list, nfunc_list), func_kwargs=kwargs,
+        tqdm_kwargs={'disable': True})
     return np.vstack(out_list)
+
+
+def log_odds_bs_resamp_helper(_, threads_list, nfunc_list, **kwargs):
+    """Helper for parallelising."""
+    run_list_temp = [nestcheck.error_analysis.bootstrap_resample_run(
+        {}, threads) for threads in threads_list]
+    return get_log_odds(run_list_temp, nfunc_list, **kwargs)
 
 
 def get_bayes_df(run_list, run_list_sep, **kwargs):
@@ -77,55 +85,89 @@ def get_bayes_df(run_list, run_list_sep, **kwargs):
     adfam = kwargs.pop('adfam')
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    # Get log odds ratios from combined runs
     log_odds = get_log_odds(run_list, nfunc_list, adaptive=adaptive,
                             adfam=adfam)
-    columns = list(range(1, log_odds.shape[0] + 1))
-    log_odds_bs = get_log_odds_bs_resamp(
+    log_odds_resamps = get_log_odds_bs_resamp(
         run_list, nfunc_list, adaptive=adaptive, adfam=adfam,
         n_simulate=n_simulate)
-    df = nestcheck.pandas_functions.summary_df_from_array(
-        log_odds_bs, columns)
-    df = df.loc[df.index.get_level_values('calculation type') == 'std', :]
-    df.index.set_levels('log odds ' + df.index.levels[0].astype(str),
-                        level=0, inplace=True)
-    df.loc[('log odds', 'value'), :] = log_odds
-    df.loc[('log odds', 'uncertainty'), :] = \
-        df.loc[('log odds std', 'value'), :]
-    df.loc[('odds', 'value'), :] = np.exp(log_odds)
-    df.loc[('odds', 'uncertainty'), :] = np.std(
-        np.exp(log_odds_bs), axis=0, ddof=1)
-    # add split values
+    # Get log odds ratios from split runs
     sep_log_odds = []
-    sep_bs_stds = []
+    sep_log_odds_resamps = []
     for rl in run_list_sep:
         sep_log_odds.append(get_log_odds(
             rl, nfunc_list, adaptive=adaptive, adfam=adfam))
-        bs_temp = get_log_odds_bs_resamp(
+        sep_log_odds_resamps.append(get_log_odds_bs_resamp(
             rl, nfunc_list, adaptive=adaptive, adfam=adfam,
-            n_simulate=n_simulate)
-        sep_bs_stds.append(np.std(bs_temp, axis=0, ddof=1))
+            n_simulate=n_simulate))
+    # Get info df
+    log_odds_df = get_sep_comb_df(
+        log_odds,
+        log_odds_resamps,
+        sep_log_odds,
+        sep_log_odds_resamps,
+        'log odds')
+    odds_df = get_sep_comb_df(
+        np.exp(log_odds),
+        np.exp(log_odds_resamps),
+        [np.exp(arr) for arr in sep_log_odds],
+        [np.exp(arr) for arr in sep_log_odds_resamps],
+        'odds')
+    return pd.concat([odds_df, log_odds_df])
+
+
+def get_sep_comb_df(values, bs_resamps, sep_values, sep_bs_resamps,
+                    name):
+    """Get dataframe information on combined and seperate runs.
+
+    Parameters
+    ----------
+    values: 1d numpy array
+    bs_resamps: 2d numpy array
+    sep_values: list of 1d numpy arrays
+    sep_bs_resamps: list of 2d numpy arrays
+    """
+    # Check shapes
+    assert values.shape[0] == bs_resamps.shape[1]
+    assert len(sep_values) == len(sep_bs_resamps)
+    assert len(set([ar.shape for ar in sep_values])) == 1
+    assert len(set([ar.shape for ar in sep_bs_resamps])) == 1
+    assert values.shape == sep_values[0].shape
+    assert bs_resamps.shape == sep_bs_resamps[0].shape
+    # Make df
+    columns = list(range(1, values.shape[0] + 1))
+    # Get std from bs resamps
+    df = nestcheck.pandas_functions.summary_df_from_array(
+        bs_resamps, columns)
+    df = df.loc[df.index.get_level_values('calculation type') == 'std', :]
+    df.index.set_levels(name + ' ' + df.index.levels[0].astype(str),
+                        level=0, inplace=True)
+    # Add actual values
+    df.loc[(name, 'value'), :] = values
+    df.loc[(name, 'uncertainty'), :] = df.loc[(name + ' std', 'value'), :]
+    # Add seperate values
     sep_df = nestcheck.pandas_functions.summary_df_from_list(
-        sep_log_odds, columns)
+        sep_values, columns)
     sep_df.index.set_levels(
-        'log odds sep ' + sep_df.index.levels[0].astype(str),
+        name + ' sep ' + sep_df.index.levels[0].astype(str),
         level=0, inplace=True)
     df = pd.concat([df, sep_df])
-    # Add sep runs implementation errors
-    sep_bs = nestcheck.pandas_functions.summary_df_from_list(
-        sep_bs_stds, columns)
+    # Get mean sep bs std and its uncertainty
+    sep_bs_df = nestcheck.pandas_functions.summary_df_from_list(
+        [np.std(arr, axis=0, ddof=1) for arr in sep_bs_resamps], columns)
     for rt in ['value', 'uncertainty']:
-        df.loc[('sep bs std mean', rt), :] = sep_bs.loc[('mean', rt)]
-    # get implementation stds
+        df.loc[(name + ' sep bs std mean', rt), :] = sep_bs_df.loc[('mean', rt)]
+    # Add sep runs implementation errors
     imp_std, imp_std_unc, imp_frac, imp_frac_unc = \
         nestcheck.error_analysis.implementation_std(
-            df.loc[('log odds sep std', 'value')].values,
-            df.loc[('log odds sep std', 'uncertainty')].values,
-            df.loc[('sep bs std mean', 'value')].values,
-            df.loc[('sep bs std mean', 'uncertainty')].values)
-    df.loc[('sep implementation std', 'value'), df.columns] = imp_std
-    df.loc[('sep implementation std', 'uncertainty'), df.columns] = imp_std_unc
-    df.loc[('sep implementation std frac', 'value'), :] = imp_frac
-    df.loc[('sep implementation std frac', 'uncertainty'), :] = imp_frac_unc
+            df.loc[(name + ' sep std', 'value')].values,
+            df.loc[(name + ' sep std', 'uncertainty')].values,
+            df.loc[(name + ' sep bs std mean', 'value')].values,
+            df.loc[(name + ' sep bs std mean', 'uncertainty')].values)
+    df.loc[(name + ' sep imp std', 'value'), df.columns] = imp_std
+    df.loc[(name + ' sep imp std', 'uncertainty'), df.columns] = imp_std_unc
+    df.loc[(name + ' sep imp std frac', 'value'), :] = imp_frac
+    df.loc[(name + ' sep imp std frac', 'uncertainty'), :] = imp_frac_unc
     return df.sort_index()
 
 
@@ -178,15 +220,19 @@ def get_results_df(results_dict, **kwargs):
         else:
             van_str = bsr.results_utils.root_given_key(vanilla_keys[0])
             van_nsamp = df.loc[(prob_str, van_str, 'nsample', 'value')]
-            for measure in ['log odds std', 'log odds sep std']:
+            for measure in ['odds std', 'odds sep std', 'log odds std',
+                            'log odds sep std']:
                 gain_type = measure.replace('std', 'gain')
                 van_val = df.loc[(prob_str, van_str, measure, 'value')]
                 van_unc = df.loc[(prob_str, van_str, measure, 'uncertainty')]
                 for meth_key in prob_data.keys():
                     meth_str = bsr.results_utils.root_given_key(meth_key)
-                    meth_nsamp = df.loc[(prob_str, meth_str, 'nsample', 'value')]
-                    meth_val = df.loc[(prob_str, meth_str, measure, 'value')]
-                    meth_unc = df.loc[(prob_str, meth_str, measure, 'uncertainty')]
+                    meth_nsamp = \
+                        df.loc[(prob_str, meth_str, 'nsample', 'value')]
+                    meth_val = \
+                        df.loc[(prob_str, meth_str, measure, 'value')]
+                    meth_unc = \
+                        df.loc[(prob_str, meth_str, measure, 'uncertainty')]
                     nsamp_ratio = van_nsamp / meth_nsamp
                     gain, gain_unc = nestcheck.pandas_functions.get_eff_gain(
                         van_val, van_unc, meth_val, meth_unc,
@@ -195,7 +241,7 @@ def get_results_df(results_dict, **kwargs):
                     df.loc[(prob_str, meth_str, gain_type, 'uncertainty'), :] = \
                         gain_unc
         df_list.append(df)
-    return pd.concat(df_list)
+    return pd.concat(df_list, sort=True)
 
 
 @nestcheck.io_utils.save_load_result
