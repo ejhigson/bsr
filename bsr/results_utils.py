@@ -11,6 +11,7 @@ import bsr.basis_functions as bf
 def load_data(problem_tups, method_tups, inds, **kwargs):
     """Load run data."""
     sep_runs = kwargs.pop('sep_runs', True)
+    base_dir = kwargs.pop('base_dir', 'chains')
     results_dict = make_base_dict(problem_tups, method_tups, **kwargs)
     for problem_tup in problem_tups:
         prob_key = get_problem_key(*problem_tup)
@@ -27,7 +28,7 @@ def load_data(problem_tups, method_tups, inds, **kwargs):
                 batch = nestcheck.data_processing.batch_process_data(
                     [root + '_' + str(i).zfill(3) for i in inds],
                     parallel=False, parallel_warning=False,
-                    tqdm_kwargs={'disable': True},
+                    tqdm_kwargs={'disable': True}, base_dir=base_dir,
                     errors_to_handle=(AssertionError, OSError))
                 if sep_runs:
                     run_list_sep.append(batch)
