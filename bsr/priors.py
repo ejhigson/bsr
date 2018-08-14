@@ -65,7 +65,7 @@ def get_default_prior(func, nfunc, **kwargs):
                 for param in ['mu', 'sigma', 'beta']:
                     priors_dict[param + '1'] = priors_dict[param]
                     priors_dict[param + '2'] = priors_dict[param]
-                    del priors_dict[param]  # Causes error if accidentally used
+                    del priors_dict[param]  # del so error thrown if used
                 priors_dict['omega'] = Uniform(-0.25 * np.pi, 0.25 * np.pi)
         elif func.__name__ in ['ta_1d', 'ta_2d']:
             priors_dict = {'a':           Gaussian(

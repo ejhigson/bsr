@@ -29,7 +29,7 @@ def plot_bars(df, **kwargs):
         default_title = 'log posterior odds ratios'
     else:
         if adfam:
-            default_title = 'posterior distribution of $N,T$'
+            default_title = 'posterior distribution of $T,N$'
         else:
             default_title = 'posterior distribution of $N$'
     method_list = kwargs.pop(

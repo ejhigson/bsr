@@ -29,6 +29,13 @@ def adaptive_logz(run, logw=None, nfunc=1, adfam_t=None):
     else:
         return scipy.special.logsumexp(points)
 
+def adaptive_prob(run, logw=None, **kwargs):
+    """Convenience wrapper for computing adaptive Z as fraction of the total
+    Z."""
+    if logw is None:
+        logw = nestcheck.ns_run_utils.get_logw(run)
+    ad_logz = adaptive_logz(run, logw=logw, **kwargs)
+    return np.exp(ad_logz - scipy.special.logsumexp(logw))
 
 def get_log_odds(run_list, nfunc_list, **kwargs):
     """Returns array of log odds ratios"""
