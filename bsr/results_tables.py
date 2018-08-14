@@ -172,7 +172,7 @@ def get_sep_comb_df(values, bs_resamps, sep_values, sep_bs_resamps,
 
 
 def select_adaptive_inds(theta, nfunc, nfam=None):
-    """Returns boolian mask of theta components which have the input B (and
+    """Returns boolian mask of theta components which have the input N (and
     optionally also T) values.
     """
     if nfam is None:

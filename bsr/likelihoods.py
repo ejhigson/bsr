@@ -127,7 +127,7 @@ class FittingLikelihood(object):
             if self.global_bias:
                 param_names = ['a_0'] + param_names
             if self.adaptive:
-                param_names = ['B'] + param_names
+                param_names = ['N'] + param_names
             if self.function.__name__ == 'adfam_gg_ta_1d':
                 param_names = ['T'] + param_names
             assert len(param_names) == self.ndim
@@ -157,7 +157,7 @@ class FittingLikelihood(object):
             if self.global_bias:
                 param_names = ['$a_0$'] + param_names
             if self.adaptive:
-                param_names = ['$B$'] + param_names
+                param_names = ['$N$'] + param_names
             assert len(param_names) == self.ndim
             return param_names
 

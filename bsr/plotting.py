@@ -29,9 +29,9 @@ def plot_bars(df, **kwargs):
         default_title = 'log posterior odds ratios'
     else:
         if adfam:
-            default_title = 'posterior distribution of $B,T$'
+            default_title = 'posterior distribution of $N,T$'
         else:
-            default_title = 'posterior distribution of $B$'
+            default_title = 'posterior distribution of $N$'
     method_list = kwargs.pop(
         'method_list',
         sort_method_list(list(set(df.index.get_level_values(0)))))
@@ -76,12 +76,12 @@ def plot_bars(df, **kwargs):
                 xlabels.append('{},{}'.format(t, b))
         fig.axes[0].set_xticklabels(xlabels)
         fig.axes[0].axvline(x=n_per_fam - 0.5, color='black', linestyle=':')
-        ax.set_xlabel('family and number $T,B$')
+        ax.set_xlabel('family and number $T,N$')
     else:
         if nn_xlabel:
-            ax.set_xlabel('nodes per hidden layer $B$')
+            ax.set_xlabel('nodes per hidden layer $N$')
         else:
-            ax.set_xlabel('number of basis functions $B$')
+            ax.set_xlabel('number of basis functions $N$')
         ax.set_xticklabels(['${}$'.format(nf) for nf in df.columns])
     if log_ratios:
         ax.set_ylim([ymin, 0])
@@ -97,9 +97,9 @@ def plot_bars(df, **kwargs):
         if ax.get_ylim()[1] == 1:
             ax.set_yticks([0, 0.5, 1])
         if adfam:
-            var = 'T,B'
+            var = 'T,N'
         else:
-            var = 'B'
+            var = 'N'
         # add y label
         ax.set_ylabel(r'$P({}|\mathcal{{L}},\pi)$'.format(var))
     ax.legend([ba[0] for ba in bars], labels)
@@ -163,16 +163,16 @@ def get_default_titles(likelihood_list, combine, plot_data,
     else:
         if adfam:
             for nfunc in nfunc_list:
-                titles.append('$T,B=1,{}$'.format(nfunc))
+                titles.append('$T,N=1,{}$'.format(nfunc))
             for nfunc in nfunc_list:
-                titles.append('$T,B=2,{}$'.format(nfunc))
+                titles.append('$T,N=2,{}$'.format(nfunc))
         else:
             for nfunc in nfunc_list:
                 if isinstance(nfunc, list):
                     # Display only the hidden layers' number of nodes
-                    titles.append('$B={}$'.format(nfunc[-1]))
+                    titles.append('$N={}$'.format(nfunc[-1]))
                 else:
-                    titles.append('$B={}$'.format(nfunc))
+                    titles.append('$N={}$'.format(nfunc))
     return titles
 
 
