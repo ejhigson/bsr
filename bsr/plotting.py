@@ -21,7 +21,7 @@ import bsr.results_tables
 def plot_bars(df, **kwargs):
     """Make a bar chart of vanilla and adaptive Bayes factors, including their
     error bars."""
-    assert len(df.index.names) == 2
+    assert len(df.index.names) == 3
     assert df.index.names[-1] == 'result type', df.index.names
     adfam = kwargs.pop('adfam', False)
     log_ratios = kwargs.pop('log_ratios', True)
@@ -41,6 +41,7 @@ def plot_bars(df, **kwargs):
     colors = kwargs.pop('colors', ['lightgrey', 'grey', 'black', 'darkblue',
                                    'darkred'])
     nn_xlabel = kwargs.pop('nn_xlabel', False)
+    calc_type = kwargs.pop('calc_type')
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     # Make the plot
@@ -55,10 +56,16 @@ def plot_bars(df, **kwargs):
     for i, method in enumerate(method_list):
         labels.append(bsr.results_utils.label_given_method_str(method))
         # plot bar
-        values = df.loc[(method, 'value')]
+        values = df.loc[(method, calc_type, 'value')].values
         if log_ratios:
             values -= values.max()
-        unc = df.loc[(method, 'uncertainty')]
+        unc = df.loc[(method, calc_type, 'uncertainty')].values
+        try:
+            unc_sep_key = (method, calc_type + ' sep mean', 'uncertainty')
+            unc_sep = df.loc[unc_sep_key].values
+            unc = np.maximum(unc, unc_sep)
+        except KeyError:
+            print('key error for', unc_sep_key)
         bars.append(ax.bar(
             ind + bar_centres[i], values, bar_width,
             yerr=unc, color=colors[i]))
@@ -102,7 +109,14 @@ def plot_bars(df, **kwargs):
             var = 'N'
         # add y label
         ax.set_ylabel(r'$P({}|\mathcal{{L}},\pi)$'.format(var))
-    ax.legend([ba[0] for ba in bars], labels)
+    shrink = 0.6
+    labels = [lab.replace('dynamic adaptive', 'dyn. adap.') for lab in labels]
+    ax.legend(
+        [ba[0] for ba in bars], labels,
+        prop={'size': matplotlib.rcParams.get('font.size') - 1},
+        labelspacing=matplotlib.rcParams.get('legend.labelspacing') * shrink,
+        handlelength=matplotlib.rcParams.get('legend.handlelength') * shrink,
+        handletextpad=matplotlib.rcParams.get('legend.handletextpad') * shrink)
     adjust = {'top': 1 - (0.2 / figsize[1]),
               'bottom': 0.4 / figsize[1],
               'left': (0.45 / figsize[0]),
