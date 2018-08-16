@@ -117,11 +117,8 @@ def plot_bars(df, **kwargs):
         labelspacing=matplotlib.rcParams.get('legend.labelspacing') * shrink,
         handlelength=matplotlib.rcParams.get('legend.handlelength') * shrink,
         handletextpad=matplotlib.rcParams.get('legend.handletextpad') * shrink)
-    adjust = {'top': 1 - (0.2 / figsize[1]),
-              'bottom': 0.4 / figsize[1],
-              'left': (0.45 / figsize[0]),
-              'right': 1 - (0.01 / figsize[0])}
-    fig.subplots_adjust(**adjust)
+    fig = adjust_spacing(fig, gs=None, subplot_width=None,
+                         margin_left=0.45, margin_right=0.01)
     return fig
 
 
@@ -303,7 +300,12 @@ def plot_colormap(y_list, x1, x2, **kwargs):
             plt.colorbar(im, cax=cax)
         if titles is not None:
             ax.set_title(titles[i])
-    fig = adjust_spacing(fig, gs)
+    if all([t[0] == '$' for t in titles]):
+        # split plots dont need so much bottom space as dont need to align with
+        # bar charts
+        fig = adjust_spacing(fig, gs, margin_bottom=0.2, margin_left=0.2)
+    else:
+        fig = adjust_spacing(fig, gs)
     return fig
 
 
@@ -437,33 +439,58 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many
     return fig
 
 
-def adjust_spacing(fig, gs):
-    """Adjust plotgrid position to make sure plots are square and use all
-    the available space."""
+def adjust_spacing(fig, gs=None, **kwargs):
+    """Adjust plotgrid position to make sure plots are the right shape and use
+    the available space. All sizes are in inches."""
+    margin_top = kwargs.pop('margin_top', 0.2)
+    margin_bottom = kwargs.pop('margin_bottom', 0.4)
+    margin_left = kwargs.pop('margin_left', 0.45)
+    margin_right = kwargs.pop('margin_right', 0.3)
+    wspace = kwargs.pop('wspace', 0.1)
+    hspace = kwargs.pop('hspace', 0.3)
+    subplot_height = kwargs.pop('subplot_height', 1.05)
+    subplot_width = kwargs.pop('subplot_width', 1.05)
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     figsize = fig.get_size_inches()
-    wspace = 0.1
     if gs is not None:
-        wr = gs.get_width_ratios()
-        hr = gs.get_height_ratios()
         gs.update(wspace=wspace)
-        if len(hr) > 1:
-            gs.update(hspace=0.3)
+        gs.update(hspace=hspace)
+        nrow = len(gs.get_height_ratios())
+        wr = gs.get_width_ratios()
+        # Get number of cols excluding color bars
+        ncol = sum([w == wr[0] for w in wr])
+        assert ncol in [len(wr), len(wr) - 1], wr
     else:
-        wr = [1]
-    margins = {'top': 0.2, 'bottom': 0.4, 'left': 0.45, 'right': 0.3}
+        nrow = 1
+        ncol = 1
     # fit squared vertically into space left after top and bottom margins
-    adjust = {}
-    adjust['bottom'] = margins['bottom'] / figsize[1]
-    adjust['top'] = 1 - (margins['top'] / figsize[1])
-    side_length = figsize[1] - (adjust['top'] - adjust['bottom'])
-    width = ((sum(wr) / max(wr)) + (len(wr) - 1) * wspace) * side_length
-    space = figsize[0] - (width + margins['left'] + margins['right'])
-    if space < 0:
-        warnings.warn('I need {} more horizonal inches to fit square plots'
-                      .format(space), UserWarning)
-        space = 0
-    adjust['left'] = (margins['left'] + space / 2) / figsize[0]
-    adjust['right'] = 1 - ((margins['right'] + space / 2) / figsize[0])
+    adjust = {'bottom': margin_bottom / figsize[1],
+              'right': 1 - (margin_right / figsize[0])}
+    if subplot_height is None:
+        # fill entire space left by margins
+        adjust['top'] = 1 - (margin_top / figsize[1])
+    else:
+        height = subplot_height * nrow
+        height += hspace * (nrow - 1)
+        print(('{} vertical inches remaining. Subplot_height={}, '
+               'figsize={}').format(
+                   figsize[1] - (margin_bottom + margin_top + height),
+                   subplot_height, figsize))
+        adjust['top'] = (margin_bottom + height) / figsize[1]
+    if subplot_width is None:
+        # fill entire space left by margins
+        adjust['left'] = margin_left / figsize[0]
+    else:
+        width = subplot_width * ncol
+        width += wspace * (ncol - 1)
+        print(('{} horizontal inches remaining. Subplot_width={}, '
+               'figsize={}').format(
+                   figsize[0] - (margin_left + margin_right + width),
+                   subplot_width, figsize))
+        adjust['left'] = 1 - ((margin_right + width) / figsize[0])
     fig.subplots_adjust(**adjust)
     return fig
 
@@ -525,7 +552,7 @@ def fgivenx_plot(func, x, thetas, ax, **kwargs):
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     try:
-        y, pmf = fgivenx.compute_pmf(
+        y, pmf = fgivenx.drivers.compute_pmf(
             func, x, thetas, logZ=logzs, weights=weights, parallel=parallel,
             ntrim=ntrim, ny=ny, y=y, cache=cache, tqdm_kwargs=tqdm_kwargs)
         cbar = fgivenx.plot.plot(
@@ -550,7 +577,7 @@ def sort_method_list(unsorted):
     out += sorted([meth for meth in unsorted
                    if ('True' in meth and 'None' in meth)])
     out += sorted([meth for meth in unsorted
-    	           if ('True' in meth and 'None' not in meth)])
+                   if ('True' in meth and 'None' not in meth)])
     assert set(out) == set(unsorted), [set(out), set(unsorted)]
     return out
 
