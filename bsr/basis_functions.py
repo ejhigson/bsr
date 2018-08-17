@@ -23,12 +23,12 @@ def gg_1d(x, a, mu, sigma, beta):
 
 
 def gg_2d(x1, x2, a, mu1, mu2, sigma1, sigma2, beta1, beta2, omega):
-    """2d generalised gaussian"""
+    """2d generalised gaussian.
+
+    omega is counterclockwise rotation angle in (x1, x2) plane."""
     # Rotate gen gaussian around the mean
-    x1_new = x1 - mu1
-    x2_new = x2 - mu2
-    x1_new = np.cos(omega) * x1_new - np.sin(omega) * x2_new
-    x2_new = np.sin(omega) * x1_new + np.cos(omega) * x2_new
+    x1_new = np.cos(omega) * (x1 - mu1) - np.sin(omega) * (x2 - mu2)
+    x2_new = np.sin(omega) * (x1 - mu1) + np.cos(omega) * (x2 - mu2)
     # NB we do not include means as x1_new and x2_new are relative to means
     return (a * gg_1d(x1_new, 1.0, 0, sigma1, beta1)
             * gg_1d(x2_new, 1.0, 0, sigma2, beta2))
