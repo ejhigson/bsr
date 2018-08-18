@@ -281,19 +281,22 @@ class FittingLikelihood(object):
             # x errors require integration
             # First calculate normalisation constants for all points'
             # contributions in one go
-            logl = np.log(2 * np.pi * self.data['y_error_sigma']
-                          * self.data['x_error_sigma']
-                          * (self.data['x1max'] - self.data['x1min']))
+            logl = -np.log(2 * np.pi * self.data['y_error_sigma']
+                           * self.data['x_error_sigma']
+                           * (self.data['x1max'] - self.data['x1min']))
             logl *= self.data['y'].size
             # Now integrate:
             # number of points needs to be high (~1000) or polychord gives the
             # 'nondeterministic likelihood' warning as likelihoods evaluate
             # inconsistently due to rounding errors on the integration
-            X = np.linspace(self.data['x1min'], self.data['x1max'], 1000)
+            X = np.linspace(self.data['x1min'], self.data['x1max'], 1001)
             Y = self.fit(theta, X)
             for ind, y_ind in np.ndenumerate(self.data['y']):
                 contribution = scipy.integrate.simps(
                     self.integrand(X, Y, self.data['x1'][ind], y_ind), x=X)
+                contribution = simpson(
+                    self.integrand(X, Y, self.data['x1'][ind], y_ind),
+                    delta=X[1] - X[0])
                 if contribution == 0:
                     logl = -np.inf
                     break
@@ -304,6 +307,11 @@ class FittingLikelihood(object):
 
 # Helper functions
 # ----------------
+
+def simpson(integrand, delta):
+    out = np.sum(integrand[:-2:2] + integrand[2::2] + 4 * integrand[1::2])
+    return (delta / 3.0) * out
+
 
 def log_gaussian_given_r(r, sigma, n_dim=1):
     """
@@ -322,7 +330,7 @@ def cpp_format_array(array):
     format_dict = {'\n': '',
                    '[': '',
                    ']': ''}
-    vals_str = np.array2string(array.flatten(order='C'), precision=12,
+    vals_str = np.array2string(array.flatten(order='C'), precision=15,
                                separator=' ')
     for key, item in format_dict.items():
         vals_str = vals_str.replace(key, item)
