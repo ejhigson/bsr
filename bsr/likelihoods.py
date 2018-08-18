@@ -22,6 +22,7 @@ hyperparameter values. These objects can be used in the same way as functions
 due to python's "duck typing" (alternatively you can define likelihoods
 using functions).
 """
+import os
 import warnings
 import numpy as np
 import scipy.special
@@ -215,6 +216,36 @@ class FittingLikelihood(object):
             ys = np.apply_along_axis(self.fit, 1, theta, x1, x2)
             return np.mean(ys, axis=0)
 
+    def write_cpp_config(self, file_root, base_dir='chains'):
+        """Writes a config file for the C++ version of this likelihood,
+        including the data and model to fit. This is saved to the path:
+
+        base_dir/file_root.cfg
+
+        Parameters
+        ----------
+        file_root: str
+        base_dir: str, optional
+        """
+        filepath = os.path.join(base_dir, file_root + '.cfg')
+        with open(filepath, 'w') as cfg_file:
+            cfg_file.write('nfunc={}\n'.format(self.nfunc))
+            cfg_file.write('fit_func={}\n'.format(self.function.__name__))
+            cfg_file.write('y_error_sigma={}\n'.format(
+                self.data['y_error_sigma']))
+            if self.data['x_error_sigma'] is None:
+                cfg_file.write('x_error_sigma=0\n')
+            else:
+                cfg_file.write('x_error_sigma={}\n'.format(
+                    self.data['x_error_sigma']))
+            cfg_file.write('x1={}\n'.format(cpp_format_array(self.data['x1'])))
+            cfg_file.write('y={}\n'.format(cpp_format_array(self.data['y'])))
+            if self.data['x2'] is not None:
+                cfg_file.write('x2={}\n'.format(cpp_format_array(
+                    self.data['x2'])))
+            cfg_file.write('adaptive={}\n'.format(self.adaptive))
+
+
     def integrand(self, X, Y, xj, yj):
         """Helper function for integrating."""
         expo = ((xj - X) / self.data['x_error_sigma']) ** 2
@@ -284,3 +315,15 @@ def log_gaussian_given_r(r, sigma, n_dim=1):
     logl -= n_dim * np.log(sigma)
     logl -= np.log(2 * np.pi) * (n_dim / 2.0)
     return logl
+
+def cpp_format_array(array):
+    """Transforms array into string of type read in C++ likelihood config
+    file."""
+    format_dict = {'\n': '',
+                   '[': '',
+                   ']': ''}
+    vals_str = np.array2string(array.flatten(order='C'), precision=12,
+                               separator=' ')
+    for key, item in format_dict.items():
+        vals_str = vals_str.replace(key, item)
+    return vals_str
