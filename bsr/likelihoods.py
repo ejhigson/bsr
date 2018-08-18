@@ -25,7 +25,7 @@ using functions).
 import os
 import warnings
 import numpy as np
-import scipy.special
+import scipy.integrate
 import bsr.basis_functions as bf
 import bsr.neural_networks as nn
 
@@ -289,14 +289,13 @@ class FittingLikelihood(object):
             # number of points needs to be high (~1000) or polychord gives the
             # 'nondeterministic likelihood' warning as likelihoods evaluate
             # inconsistently due to rounding errors on the integration
-            X = np.linspace(self.data['x1min'], self.data['x1max'], 1001)
+            nsamp = 1001
+            X = np.linspace(self.data['x1min'], self.data['x1max'], nsamp)
+            dx = (self.data['x1max'] - self.data['x1min']) / (nsamp - 1)
             Y = self.fit(theta, X)
-            for ind, y_ind in np.ndenumerate(self.data['y']):
+            for i, y_ind in enumerate(self.data['y']):
                 contribution = scipy.integrate.simps(
-                    self.integrand(X, Y, self.data['x1'][ind], y_ind), x=X)
-                contribution = simpson(
-                    self.integrand(X, Y, self.data['x1'][ind], y_ind),
-                    delta=X[1] - X[0])
+                    self.integrand(X, Y, self.data['x1'][i], y_ind), dx=dx)
                 if contribution == 0:
                     logl = -np.inf
                     break
@@ -308,9 +307,13 @@ class FittingLikelihood(object):
 # Helper functions
 # ----------------
 
-def simpson(integrand, delta):
+def simpson(integrand, dx=1):
+    """1d simpson integration. Should give same answer as scipy.integrate.simps
+    when integrand.shape[0] is odd."""
     out = np.sum(integrand[:-2:2] + integrand[2::2] + 4 * integrand[1::2])
-    return (delta / 3.0) * out
+    return (dx / 3.0) * out
+
+
 
 
 def log_gaussian_given_r(r, sigma, n_dim=1):
