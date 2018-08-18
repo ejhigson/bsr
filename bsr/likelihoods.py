@@ -333,8 +333,21 @@ def cpp_format_array(array):
     format_dict = {'\n': '',
                    '[': '',
                    ']': ''}
-    vals_str = np.array2string(array.flatten(order='C'), precision=15,
+    # Save input printoptions so we don't edit them
+    printoptions_dict_in = np.get_printoptions()
+    np.set_printoptions(
+        suppress=True,  # supress standard form
+        threshold=1000000,  # elements triggering summary
+        floatmode='fixed',
+        linewidth=10000000)
+    vals_str = np.array2string(array.flatten(order='C'), precision=10,
                                separator=' ')
     for key, item in format_dict.items():
         vals_str = vals_str.replace(key, item)
+    vals_str.replace('  ', ' ')
+    vals_str.replace('  ', ' ')
+    vals_str.replace('  ', ' ')
+    assert 'e' not in vals_str, (
+        'Should not use scientific notation! vals_str=' + vals_str)
+    np.set_printoptions(**printoptions_dict_in)  # restore previous setting
     return vals_str
