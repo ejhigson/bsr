@@ -27,7 +27,7 @@ class TestBasisFunctions(unittest.TestCase):
         """Check gg_2d basis function values."""
         args = tuple(range(1, 11))
         self.assertAlmostEqual(bf.gg_2d(*args),
-                               2.999954698792266)
+                               2.9730199861219813)
 
     def test_ta_1d(self):
         """Check ta_1d basis function values."""
