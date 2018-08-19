@@ -19,7 +19,7 @@ def gg_1d(x, a, mu, sigma, beta):
     is excluded to avoid degeneracies between sigma and a, so the maxiumum of
     the basis function = a.
     """
-    return a * np.exp((-1.0) * (np.absolute(x - mu) / sigma) ** beta)
+    return a * np.exp(-((np.absolute(x - mu) / sigma) ** beta))
 
 
 def gg_2d(x1, x2, a, mu1, mu2, sigma1, sigma2, beta1, beta2, omega):
