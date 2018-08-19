@@ -374,6 +374,23 @@ class TestLikelihoods(unittest.TestCase):
 
     """Tests for the likelihoods.py module."""
 
+    def test_gg_1d_fit(self):
+        """Basic tests of fitting likelihood with and without X errors."""
+        theta = np.asarray([0.1, 0.1, 0.1, 2])
+        # Try with x errors
+        data = bsr.data.generate_data(bf.gg_1d, 1, 0.05, x_error_sigma=0.05)
+        likelihood = bsr.likelihoods.FittingLikelihood(
+            data, bf.gg_1d, 1)
+        logl = likelihood(theta)[0]
+        self.assertAlmostEqual(logl, -3644.2492288935546)
+        # Try without x errors
+        data = bsr.data.generate_data(bf.gg_1d, 1, 0.1, x_error_sigma=None)
+        likelihood = bsr.likelihoods.FittingLikelihood(
+            data, bf.gg_1d, 1)
+        logl = likelihood(theta)[0]
+        self.assertAlmostEqual(logl, -996.0402722959848)
+
+
     def test_nn_ta_fit(self):
         """Check the neural network fitting function's output values, including
         against sums of tanh basis functions."""
