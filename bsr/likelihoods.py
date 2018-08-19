@@ -25,7 +25,6 @@ using functions).
 import os
 import warnings
 import numpy as np
-import scipy.integrate
 import bsr.basis_functions as bf
 import bsr.neural_networks as nn
 
@@ -246,12 +245,6 @@ class FittingLikelihood(object):
             cfg_file.write('adaptive={}\n'.format(self.adaptive))
 
 
-    def integrand(self, X, Y, xj, yj):
-        """Helper function for integrating."""
-        expo = ((xj - X) / self.data['x_error_sigma']) ** 2
-        expo += ((yj - Y) / self.data['y_error_sigma']) ** 2
-        return np.exp(-0.5 * expo)
-
     def __call__(self, theta):
         """
         Calculate loglikelihood(theta), as well as any derived parameters.
@@ -290,30 +283,36 @@ class FittingLikelihood(object):
             # 'nondeterministic likelihood' warning as likelihoods evaluate
             # inconsistently due to rounding errors on the integration
             nsamp = 1001
-            X = np.linspace(self.data['x1min'], self.data['x1max'], nsamp)
             dx = (self.data['x1max'] - self.data['x1min']) / (nsamp - 1)
+            X = np.linspace(self.data['x1min'], self.data['x1max'], nsamp)
             Y = self.fit(theta, X)
-            for i, y_ind in enumerate(self.data['y']):
-                contribution = scipy.integrate.simps(
-                    self.integrand(X, Y, self.data['x1'][i], y_ind), dx=dx)
-                if contribution == 0:
-                    logl = -np.inf
-                    break
-                else:
-                    logl += np.log(contribution)
+            # Vectorise the integral by making an array in which each row
+            # is the integrand for one data point using broadcasting
+            X = X.reshape((1, X.shape[0]))
+            Y = Y.reshape((1, Y.shape[0]))
+            xdat = self.data['x1'].reshape((self.data['x1'].shape[0], 1))
+            ydat = self.data['y'].reshape((self.data['y'].shape[0], 1))
+            expo = ((xdat - X) / self.data['x_error_sigma']) ** 2
+            expo += ((ydat - Y) / self.data['y_error_sigma']) ** 2
+            expo = np.exp(-0.5 * expo)
+            assert expo.shape == (self.data['y'].shape[0], nsamp)
+            contributions = rowwise_simpson(expo, dx=dx)
+            assert contributions.shape == (self.data['y'].shape[0],)
+            if np.any(contributions == 0):
+                logl = -np.inf
+            else:
+                logl += np.sum(np.log(contributions))
         return logl, []
 
 
 # Helper functions
 # ----------------
-
-def simpson(integrand, dx=1):
-    """1d simpson integration. Should give same answer as scipy.integrate.simps
-    when integrand.shape[0] is odd."""
-    out = np.sum(integrand[:-2:2] + integrand[2::2] + 4 * integrand[1::2])
+def rowwise_simpson(integrand, dx=1):
+    """rowwise 1d simpson integration. Should give same answer as
+    scipy.integrate.simps when integrand.shape[1] is odd."""
+    out = integrand[:, :-2:2] + integrand[:, 2::2] + 4 * integrand[:, 1::2]
+    out = np.sum(out, axis=1)
     return (dx / 3.0) * out
-
-
 
 
 def log_gaussian_given_r(r, sigma, n_dim=1):
