@@ -74,10 +74,10 @@ def adaptive_theta(theta, n_nodes):
         theta = copy.deepcopy(theta[1:])  # deepcopy needed for PolyChord
         assert nfunc <= n_nodes[-1]
         for node in range(nfunc, n_nodes[-1]):
-            theta[node + 1] = 0
+            theta[node] = 0
         if len(n_nodes) > 2:
             assert len(set(n_nodes[1:])) == 1
-            counter = n_nodes[-1] + 1
+            counter = n_nodes[-1]
             for layer, n_node_layer in enumerate(n_nodes[:-1]):
                 for i_from in range(n_node_layer + 1):
                     for _ in range(1, n_nodes[layer + 1] + 1):
@@ -176,9 +176,10 @@ def nn_split_params(params, n_nodes):
     w_arr_list = []
     bias_list = []
     # seperately extract the weights for mapping final layer to scalar output
-    bias_final = np.atleast_2d(params[0])
-    w_arr_final = np.atleast_2d(params[1:1 + n_nodes[-1]])
-    n_par = n_nodes[-1] + 1  # counter for parameters already extracted
+    # as these come first to allow adaptive parameter. Note the bias for the
+    # output layer still comes last after the other layers' parameters
+    w_arr_final = np.atleast_2d(params[:n_nodes[-1]])
+    n_par = n_nodes[-1]  # counter for parameters already extracted
     for i, _ in enumerate(n_nodes[:-1]):
         # extract bias
         delta = n_nodes[i + 1]
@@ -194,6 +195,9 @@ def nn_split_params(params, n_nodes):
         # reshape to 2d
         w_arr = w_arr.reshape((n_nodes[i + 1], n_nodes[i]), order='F')
         w_arr_list.append(w_arr)
+    # Now retrieve bias for final layer
+    bias_final = np.atleast_2d(params[-1])
+    n_par += 1
     # add back in final scalar output as layer with 1 node
     w_arr_list.append(w_arr_final)
     bias_list.append(bias_final)
@@ -204,9 +208,9 @@ def nn_split_params(params, n_nodes):
 
 def nn_flatten_params(w_arr_list, bias_list):
     """Inverse of nn_split_params."""
-    flat_list = [bias_list[-1].flatten(order='F'),
-                 w_arr_list[-1].flatten(order='F')]
+    flat_list = [w_arr_list[-1].flatten(order='F')]
     for i, w_arr in enumerate(w_arr_list[:-1]):
         flat_list.append(bias_list[i].flatten(order='F'))
         flat_list.append(w_arr.flatten(order='F'))
+    flat_list.append(bias_list[-1].flatten(order='F'))
     return np.concatenate(flat_list)

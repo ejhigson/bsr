@@ -95,10 +95,13 @@ class TestNeuralNetworks(unittest.TestCase):
         self.assertEqual(n_params, 10)
         theta = np.random.random(n_params)
         out_nn = nn.nn_fit(x, theta, n_nodes)
-        self.assertAlmostEqual(0.712630649588386, out_nn)
+        self.assertAlmostEqual(0.6771527317141491, out_nn)
         # Check vs tanh basis function sum (should be equivalent)
+        theta_bf = np.zeros(theta.shape)
+        theta_bf[0] = theta[-1]  # global bias at front for bf but back for nn
+        theta_bf[1:] = theta[:-1] # other params
         out_bf = bf.sum_basis_funcs(
-            bf.ta_1d, theta, n_nodes[1], x, x2=None, global_bias=True,
+            bf.ta_1d, theta_bf, n_nodes[1], x, x2=None, global_bias=True,
             sigmoid=True, adaptive=False)
         self.assertAlmostEqual(out_bf, out_nn)
         # 2d input and 1 hidden layer
@@ -110,10 +113,13 @@ class TestNeuralNetworks(unittest.TestCase):
         self.assertEqual(n_params, 13)
         theta = np.random.random(n_params)
         out_nn = nn.nn_fit(x, theta, n_nodes)
-        self.assertAlmostEqual(0.7594362318597511, out_nn)
+        self.assertAlmostEqual(0.703846220499679, out_nn)
         # Check vs tanh basis function sum (should be equivalent)
+        theta_bf = np.zeros(theta.shape)
+        theta_bf[0] = theta[-1]  # global bias at front for bf but back for nn
+        theta_bf[1:] = theta[:-1] # other params
         out_bf = bf.sum_basis_funcs(
-            bf.ta_2d, theta, n_nodes[1], x[0], x2=x[1], global_bias=True,
+            bf.ta_2d, theta_bf, n_nodes[1], x[0], x2=x[1], global_bias=True,
             sigmoid=True, adaptive=False)
         self.assertAlmostEqual(out_bf, out_nn)
         # 2d input and 2 hidden layers
@@ -125,7 +131,7 @@ class TestNeuralNetworks(unittest.TestCase):
         self.assertEqual(n_params, 30)
         theta = np.random.random(n_params)
         out_nn = nn.nn_fit(x, theta, n_nodes)
-        self.assertAlmostEqual(0.8798621458937803, out_nn)
+        self.assertAlmostEqual(0.9149156893056427, out_nn)
         # 4d input and 4 hidden layers
         # ----------------------------
         np.random.seed(44)
@@ -135,7 +141,7 @@ class TestNeuralNetworks(unittest.TestCase):
         self.assertEqual(n_params, 71)
         theta = np.random.random(n_params)
         out_nn = nn.nn_fit(x, theta, n_nodes)
-        self.assertAlmostEqual(0.7952126284097402, out_nn)
+        self.assertAlmostEqual(0.821340316965994, out_nn)
         np.random.set_state(state)  # return to original random state
 
     def test_param_names(self):
@@ -405,8 +411,8 @@ class TestLikelihoods(unittest.TestCase):
             data, nn.nn_fit, n_nodes, use_hyper=False)
         n_params = nn.nn_num_params(n_nodes)
         theta = np.random.random(n_params)
-        theta[0] = 0  # Correct for global bias (not present in ta)
-        out_ta = bf.sigmoid_func(ta_likelihood.fit(theta[1:], x))
+        theta[-1] = 0  # Correct for global bias (not present in ta)
+        out_ta = bf.sigmoid_func(ta_likelihood.fit(theta[:-1], x))
         out_nn = nn_likelihood.fit(theta, x)
         self.assertAlmostEqual(out_ta, out_nn)
         # check names
@@ -428,8 +434,8 @@ class TestLikelihoods(unittest.TestCase):
             data, nn.nn_fit, n_nodes, use_hyper=False)
         n_params = nn.nn_num_params(n_nodes)
         theta = np.random.random(n_params)
-        theta[0] = 0  # Correct for global bias (not present in ta)
-        out_ta = bf.sigmoid_func(ta_likelihood.fit(theta[1:], x[0], x2=x[1]))
+        theta[-1] = 0  # Correct for global bias (not present in ta)
+        out_ta = bf.sigmoid_func(ta_likelihood.fit(theta[:-1], x[0], x2=x[1]))
         print(x.shape, np.atleast_2d(x).T.shape)
         out_nn = nn_likelihood.fit(theta, x[0], x2=x[1])
         self.assertAlmostEqual(out_ta, out_nn)
