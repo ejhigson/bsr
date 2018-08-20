@@ -228,7 +228,10 @@ class FittingLikelihood(object):
         """
         filepath = os.path.join(base_dir, file_root + '.cfg')
         with open(filepath, 'w') as cfg_file:
-            cfg_file.write('nfunc={}\n'.format(self.nfunc))
+            if isinstance(self.nfunc, list):
+                cfg_file.write('nfunc={}\n'.format(self.nfunc[-1]))
+            else:
+                cfg_file.write('nfunc={}\n'.format(self.nfunc))
             cfg_file.write('fit_func={}\n'.format(self.function.__name__))
             cfg_file.write('y_error_sigma={}\n'.format(
                 self.data['y_error_sigma']))
