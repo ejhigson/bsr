@@ -414,16 +414,7 @@ class NNPrior(BlockPrior):
         assert len(n_nodes) >= 2
         prior_blocks = []
         block_sizes = []
-        # # Add adaptive integer parameter
-        # if adaptive:
-        #     assert len(set(n_nodes[1:])) == 1, n_nodes
-        #     prior_blocks.append(Uniform(nfunc_min - 0.5, n_nodes[1] + 0.5))
-        #     block_sizes.append(1)
-        # # Gaussian prior on main weights
-        # prior_blocks.append(Gaussian(self.w_sigma_default))
-        # block_sizes.append(nn.nn_num_params(n_nodes))
-        # Hyperparameter controlling weights Gaussian
-        # Prior on outputs
+        # Add sorted adaptive parameter on output weights
         prior_blocks.append(Gaussian(
             self.w_sigma_default, adaptive=self.adaptive, nfunc_min=nfunc_min,
             sort=True, positive=len(n_nodes) == 2))
