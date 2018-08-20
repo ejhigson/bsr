@@ -334,7 +334,7 @@ class TestPriors(unittest.TestCase):
         """Check default neural network prior."""
         # Test nn prior
         n_nodes = [2, 3]
-        w_sigma_default = 10
+        w_sigma_default = 1
         state = np.random.get_state()
         np.random.seed(0)
         # Vanilla
@@ -347,9 +347,8 @@ class TestPriors(unittest.TestCase):
         expected[n_nodes[-1]:-1] = bsr.priors.Gaussian(
             w_sigma_default, sort=False)(cube[n_nodes[-1]:-1])
         expected[-1] = bsr.priors.PowerUniform(0.1, 20, power=-2)(cube[-1])
-        expected[:-1] *= expected[-1] / w_sigma_default
-        numpy.testing.assert_allclose(prior(cube), expected,
-                                      rtol=1e-06, atol=1e-06)
+        numpy.testing.assert_allclose(
+            prior(cube), expected, rtol=1e-06, atol=1e-06)
         # Adaptive
         cube = np.random.random(nn.nn_num_params(n_nodes) + 2)
         prior = bsr.priors.get_default_prior(
@@ -363,7 +362,6 @@ class TestPriors(unittest.TestCase):
             w_sigma_default)(cube[n_nodes[-1] + 1:])
         # Get w_sigma from prior and scale weights
         expected[-1] = bsr.priors.PowerUniform(0.1, 20, power=-2)(cube[-1])
-        expected[1:-1] *= expected[-1] / w_sigma_default
         numpy.testing.assert_allclose(prior(cube), expected,
                                       rtol=1e-06, atol=1e-06)
         # return to original random state
