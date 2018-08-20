@@ -405,6 +405,8 @@ class NNPrior(BlockPrior):
         self.adaptive = kwargs.pop('adaptive', False)
         self.use_hyper = kwargs.pop('use_hyper', True)
         self.w_sigma_default = kwargs.pop('w_sigma_default', 5)
+        if self.use_hyper:
+            self.w_sigma_default = 1
         nfunc_min = kwargs.pop('nfunc_min', 1)
         if kwargs:
             raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
@@ -438,16 +440,6 @@ class NNPrior(BlockPrior):
             block_sizes.append(1)
         # Call BlockPrior init to store priors and sizes
         super(NNPrior, self).__init__(prior_blocks, block_sizes)
-
-    def __call__(self, cube):
-        theta = super(NNPrior, self).__call__(cube)
-        if self.use_hyper:
-            # Scale Gaussian physical coordinates according to hyperparameter
-            if self.adaptive:
-                theta[1:-1] *= (theta[-1] / self.w_sigma_default)
-            else:
-                theta[:-1] *= (theta[-1] / self.w_sigma_default)
-        return theta
 
 
 # Helper functions

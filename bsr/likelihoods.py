@@ -22,6 +22,7 @@ hyperparameter values. These objects can be used in the same way as functions
 due to python's "duck typing" (alternatively you can define likelihoods
 using functions).
 """
+import copy
 import os
 import warnings
 import numpy as np
@@ -76,7 +77,13 @@ class FittingLikelihood(object):
         """
         if self.function.__name__[:2] == 'nn':
             if self.use_hyper:
-                theta = theta[:-1]  # remove hyperparameter
+                hyper = theta[-1]
+                # remove hyperparameter - deepcopy needed as theta imutable
+                theta = copy.deepcopy(theta[:-1])
+                if self.adaptive:
+                    theta[1:] *= hyper  # don't scale adaptive int parameter
+                else:
+                    theta *= hyper
             if self.adaptive:
                 theta = nn.adaptive_theta(theta, self.nfunc)
             if isinstance(x1, (int, float)):
