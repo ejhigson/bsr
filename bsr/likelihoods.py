@@ -282,7 +282,7 @@ class FittingLikelihood(object):
             # number of points needs to be high (~1000) or polychord gives the
             # 'nondeterministic likelihood' warning as likelihoods evaluate
             # inconsistently due to rounding errors on the integration
-            nsamp = 1001
+            nsamp = 501
             dx = (self.data['x1max'] - self.data['x1min']) / (nsamp - 1)
             X = np.linspace(self.data['x1min'], self.data['x1max'], nsamp)
             Y = self.fit(theta, X)
