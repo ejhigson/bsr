@@ -70,9 +70,9 @@ def adaptive_theta(theta, n_nodes):
     """Return a theta vector with the nodes that are not used zeroed out."""
     assert theta.shape == (1 + nn_num_params(n_nodes),)
     try:  # pylint: disable=too-many-nested-blocks
-        nfunc = int(np.round(int(theta[0])))
+        nfunc = int(np.round(theta[0]))
         theta = copy.deepcopy(theta[1:])  # deepcopy needed for PolyChord
-        assert nfunc <= n_nodes[-1]
+        assert 1 <= nfunc <= n_nodes[-1], nfunc
         for node in range(nfunc, n_nodes[-1]):
             theta[node] = 0
         if len(n_nodes) > 2:

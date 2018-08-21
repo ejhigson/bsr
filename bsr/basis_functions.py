@@ -71,6 +71,8 @@ def sum_basis_funcs(basis_func, args_iterable, nfunc, x1, **kwargs):
     if adaptive:
         try:
             sum_max = int(np.round(args_iterable[0]))
+            assert 1 <= sum_max <= nfunc, (
+                "sum_max={} nfunc={}".format(sum_max, nfunc))
         except ValueError:
             if np.isnan(args_iterable[0]):
                 return np.nan * x1  # ensure same type and shape as x1

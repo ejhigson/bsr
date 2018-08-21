@@ -85,6 +85,9 @@ class FittingLikelihood(object):
                 else:
                     theta *= hyper
             if self.adaptive:
+                # adaptive_theta function removes the first element of theta
+                # and zeros elements corresponding to deselected nodes. Note
+                # that the returned theta array is therefore shorter.
                 theta = nn.adaptive_theta(theta, self.nfunc)
             if isinstance(x1, (int, float)):
                 # This is just a single example (M=1), so we will output a
