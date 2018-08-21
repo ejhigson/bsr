@@ -42,9 +42,28 @@ def get_default_prior(func, nfunc, **kwargs):
     assert not global_bias
     # specify default priors
     if func.__name__[:2] == 'nn':
-        # in this case nfunc is the list of numbers of nodes
-        return NNPrior(nfunc, nfunc_min=nfunc_min, adaptive=adaptive,
-                       w_sigma_default=w_sigma_default)
+        # Neural network prior. Here nfunc is a list of numbers of nodes
+        # Note all physical coordinates are scaled by hyperparameter (final
+        # parameter in prior) and hence use sigma=1
+        assert isinstance(nfunc, list)
+        assert len(nfunc) >= 2
+        prior_blocks = []
+        block_sizes = []
+        # Add sorted adaptive parameter on output weights
+        prior_blocks.append(Gaussian(
+            1.0, adaptive=adaptive, nfunc_min=nfunc_min,
+            sort=True, positive=len(nfunc) == 2))
+        if adaptive:
+            block_sizes.append(nfunc[-1] + 1)
+        else:
+            block_sizes.append(nfunc[-1])
+        # Priors on remaining weights
+        prior_blocks.append(Gaussian(1.0))
+        block_sizes.append(nn.nn_num_params(nfunc) - nfunc[-1])
+        # Priors on hyperparameter
+        prior_blocks.append(PowerUniform(0.1, 20, power=-2))
+        block_sizes.append(1)
+        return BlockPrior(prior_blocks, block_sizes)
     elif func.__name__ == 'adfam_gg_ta_1d':
         assert adaptive
         # Need to explicitly provide all args rather than use **kwargs as
@@ -165,7 +184,7 @@ class Gaussian(BasePrior):
 
     """Symmetric Gaussian prior centred on the origin."""
 
-    def __init__(self, sigma=10.0, positive=False, **kwargs):
+    def __init__(self, sigma=10.0, positive=False, mu=0.0, **kwargs):
         """
         Set up prior object's hyperparameter values.
 
@@ -173,14 +192,18 @@ class Gaussian(BasePrior):
         ----------
         sigma: float
             Standard deviation of Gaussian prior in each parameter.
-        positive: bool
+        positive: bool, optional
             Whether or not to use a truncated Gaussian prior where values are
-            always positive.
+            in the positive half (N.B. if mu != this will not have a minimum
+            at zero).
+        mu: float, optional
+            Mean of Gaussian prior.
         kwargs: dict, optional
             See BasePrior.__init__ for more infomation.
         """
         BasePrior.__init__(self, **kwargs)
         self.sigma = sigma
+        self.mu = mu
         self.positive = positive
 
     def cube_to_physical(self, cube):
@@ -203,7 +226,7 @@ class Gaussian(BasePrior):
         else:
             theta = scipy.special.erfinv(2 * cube - 1)
         theta *= self.sigma * np.sqrt(2)
-        return theta
+        return theta + self.mu
 
 
 class Uniform(BasePrior):
@@ -394,43 +417,6 @@ class BlockPrior(object):
             theta[start:end] = prior(cube[start:end])
             start += self.block_sizes[i]
         return theta
-
-
-class NNPrior(BlockPrior):
-
-    """NN prior with hyperparameter alpha controlling sigma of Gaussian prior
-    applied to weights."""
-
-    def __init__(self, n_nodes, **kwargs):
-        self.adaptive = kwargs.pop('adaptive', False)
-        self.use_hyper = kwargs.pop('use_hyper', True)
-        self.w_sigma_default = kwargs.pop('w_sigma_default', 5)
-        if self.use_hyper:
-            self.w_sigma_default = 1
-        nfunc_min = kwargs.pop('nfunc_min', 1)
-        if kwargs:
-            raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
-        assert isinstance(n_nodes, list)
-        assert len(n_nodes) >= 2
-        prior_blocks = []
-        block_sizes = []
-        # Add sorted adaptive parameter on output weights
-        prior_blocks.append(Gaussian(
-            self.w_sigma_default, adaptive=self.adaptive, nfunc_min=nfunc_min,
-            sort=True, positive=len(n_nodes) == 2))
-        if self.adaptive:
-            block_sizes.append(n_nodes[-1] + 1)
-        else:
-            block_sizes.append(n_nodes[-1])
-        # Priors on remaining weights
-        prior_blocks.append(Gaussian(self.w_sigma_default))
-        block_sizes.append(nn.nn_num_params(n_nodes) - n_nodes[-1])
-        # Priors on hyperparameter
-        if self.use_hyper:
-            prior_blocks.append(PowerUniform(0.1, 20, power=-2))
-            block_sizes.append(1)
-        # Call BlockPrior init to store priors and sizes
-        super(NNPrior, self).__init__(prior_blocks, block_sizes)
 
 
 # Helper functions
