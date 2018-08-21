@@ -59,16 +59,25 @@ def prior_to_str(prior, **kwargs):
         name, parameters, nparam, **kwargs)
 
 
-def prior_blocks_to_str(prior_blocks, block_sizes):
+def block_prior_to_str(bp_obj):
     """Get the PolyChord ini file format string corresponding to a block of
-    python priors."""
+    python priors.
+
+    Parameters
+    ----------
+    bp_obj: BlockPrior object
+
+    Returns
+    -------
+    string: string
+    """
     start_param = 1
     string = ''
-    for i, prior in enumerate(prior_blocks):
+    for i, prior in enumerate(bp_obj.prior_blocks):
         string += prior_to_str(
             prior, block=(i + 1), start_param=start_param,
-            nparam=block_sizes[i])
-        start_param += block_sizes[i]
+            nparam=bp_obj.block_sizes[i])
+        start_param += bp_obj.block_sizes[i]
     return string
 
 
