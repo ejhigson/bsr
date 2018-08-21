@@ -42,6 +42,9 @@ def prior_to_str(prior, **kwargs):
     elif name == 'poweruniform':
         name = 'power_uniform'
         parameters = [prior.minimum, prior.maximum, prior.power]
+        assert prior.power < 0, (
+            'compiled power_uniform only set up for negative powers. power={}'
+            .format(prior.power))
     elif name == 'gaussian':
         parameters = [getattr(prior, 'mu', 0.0), prior.sigma]
         if getattr(prior, 'half', False):
