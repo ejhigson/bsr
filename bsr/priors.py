@@ -29,6 +29,47 @@ import numpy as np
 import scipy
 import bsr.basis_functions as bf
 import bsr.neural_networks as nn
+import dyPolyChord.polychord_utils
+
+
+def prior_to_str(prior, **kwargs):
+    """Get the PolyChord ini file format string corresponding to a python
+    prior. This is used for compiled (C++ or Fortran) likelihoods."""
+    nparam = kwargs.pop('nparam')
+    name = type(prior).__name__.lower()
+    if name == 'uniform':
+        parameters = [prior.minimum, prior.maximum]
+    elif name == 'poweruniform':
+        name = 'power_uniform'
+        parameters = [prior.minimum, prior.maximum, prior.power]
+    elif name == 'gaussian':
+        parameters = [getattr(prior, 'mu', 0.0), prior.sigma]
+        if getattr(prior, 'half', False):
+            name = 'half_' + name
+    elif name == 'exponential':
+        parameters = [prior.lambd]
+    else:
+        raise TypeError('Not set up for ' + name)
+    if getattr(prior, 'sort', False):
+        name = 'sorted_' + name
+    if getattr(prior, 'adaptive', False):
+        name = 'adaptive_' + name
+        parameters.append(prior.nfunc_min)
+    return dyPolyChord.polychord_utils.get_prior_block_str(
+        name, parameters, nparam, **kwargs)
+
+
+def prior_blocks_to_str(prior_blocks, block_sizes):
+    """Get the PolyChord ini file format string corresponding to a block of
+    python priors."""
+    start_param = 1
+    string = ''
+    for i, prior in enumerate(prior_blocks):
+        string += prior_to_str(
+            prior, block=(i + 1), start_param=start_param,
+            nparam=block_sizes[i])
+        start_param += block_sizes[i]
+    return string
 
 
 def get_default_prior(func, nfunc, **kwargs):
@@ -52,7 +93,7 @@ def get_default_prior(func, nfunc, **kwargs):
         # Add sorted adaptive parameter on output weights
         prior_blocks.append(Gaussian(
             1.0, adaptive=adaptive, nfunc_min=nfunc_min,
-            sort=True, positive=len(nfunc) == 2))
+            sort=True, half=len(nfunc) == 2))
         if adaptive:
             block_sizes.append(nfunc[-1] + 1)
         else:
@@ -89,7 +130,7 @@ def get_default_prior(func, nfunc, **kwargs):
         elif func.__name__ in ['ta_1d', 'ta_2d']:
             priors_dict = {'a':           Gaussian(
                 w_sigma_default, nfunc_min=nfunc_min, adaptive=adaptive,
-                sort=True, positive=True),
+                sort=True, half=True),
                            'w_0':         Gaussian(w_sigma_default),
                            'w_1':         Gaussian(w_sigma_default),
                            'w_2':         Gaussian(w_sigma_default)}
@@ -184,7 +225,7 @@ class Gaussian(BasePrior):
 
     """Symmetric Gaussian prior centred on the origin."""
 
-    def __init__(self, sigma=10.0, positive=False, mu=0.0, **kwargs):
+    def __init__(self, sigma=10.0, half=False, mu=0.0, **kwargs):
         """
         Set up prior object's hyperparameter values.
 
@@ -192,10 +233,10 @@ class Gaussian(BasePrior):
         ----------
         sigma: float
             Standard deviation of Gaussian prior in each parameter.
-        positive: bool, optional
-            Whether or not to use a truncated Gaussian prior where values are
-            in the positive half (N.B. if mu != this will not have a minimum
-            at zero).
+        half: bool, optional
+            Half-Gaussian prior - nonzero only in the region greater than mu.
+            Note that in this case mu is no longer the mean and sigma is no
+            longer the standard deviation of the prior.
         mu: float, optional
             Mean of Gaussian prior.
         kwargs: dict, optional
@@ -204,7 +245,7 @@ class Gaussian(BasePrior):
         BasePrior.__init__(self, **kwargs)
         self.sigma = sigma
         self.mu = mu
-        self.positive = positive
+        self.half = half
 
     def cube_to_physical(self, cube):
         """
@@ -221,7 +262,7 @@ class Gaussian(BasePrior):
         theta: 1d numpy array
             Physical parameter values corresponding to hypercube.
         """
-        if self.positive:
+        if self.half:
             theta = scipy.special.erfinv(cube)
         else:
             theta = scipy.special.erfinv(2 * cube - 1)

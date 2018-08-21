@@ -349,7 +349,7 @@ class TestPriors(unittest.TestCase):
             nn.nn_fit, n_nodes, adaptive=False)
         expected = np.zeros(cube.shape)
         expected[:n_nodes[-1]] = bsr.priors.Gaussian(
-            w_sigma_default, sort=True, positive=True)(cube[:n_nodes[-1]])
+            w_sigma_default, sort=True, half=True)(cube[:n_nodes[-1]])
         expected[n_nodes[-1]:-1] = bsr.priors.Gaussian(
             w_sigma_default, sort=False)(cube[n_nodes[-1]:-1])
         expected[-1] = bsr.priors.PowerUniform(0.1, 20, power=-2)(cube[-1])
@@ -362,7 +362,7 @@ class TestPriors(unittest.TestCase):
             w_sigma_default=w_sigma_default)
         expected = np.zeros(cube.shape)
         expected[:n_nodes[-1] + 1] = bsr.priors.Gaussian(
-            w_sigma_default, sort=True, adaptive=True, positive=True)(
+            w_sigma_default, sort=True, adaptive=True, half=True)(
                 cube[:n_nodes[-1] + 1])
         expected[n_nodes[-1] + 1:] = bsr.priors.Gaussian(
             w_sigma_default)(cube[n_nodes[-1] + 1:])
