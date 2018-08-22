@@ -212,11 +212,8 @@ class BasePrior(object):
         """
         if self.adaptive:
             try:
-                print("cube, transformed and physical")
-                print(cube)
                 theta = adaptive_transform(
                     cube, sort=self.sort, nfunc_min=self.nfunc_min)
-                print(theta)
             except ValueError:
                 if np.isnan(cube[0]):
                     return np.full(cube.shape, np.nan)
