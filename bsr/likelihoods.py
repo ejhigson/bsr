@@ -23,7 +23,6 @@ due to python's "duck typing" (alternatively you can define likelihoods
 using functions).
 """
 import copy
-import os
 import warnings
 import numpy as np
 import bsr.basis_functions as bf
@@ -225,37 +224,31 @@ class FittingLikelihood(object):
             ys = np.apply_along_axis(self.fit, 1, theta, x1, x2)
             return np.mean(ys, axis=0)
 
-    def write_cpp_config(self, file_root, base_dir='chains'):
-        """Writes a config file for the C++ version of this likelihood,
-        including the data and model to fit. This is saved to the path:
-
-        base_dir/file_root.cfg
-
-        Parameters
-        ----------
-        file_root: str
-        base_dir: str, optional
+    def cpp_config_str(self):
+        """Writes config data to a string which can be witten to a config file
+        by the compiled version of this likelihood. Includes the data and
+        information about the fit (adaptive, number of basis functions, etc.).
         """
-        filepath = os.path.join(base_dir, file_root + '.cfg')
-        with open(filepath, 'w') as cfg_file:
-            if isinstance(self.nfunc, list):
-                cfg_file.write('nfunc={}\n'.format(self.nfunc[-1]))
-            else:
-                cfg_file.write('nfunc={}\n'.format(self.nfunc))
-            cfg_file.write('fit_func={}\n'.format(self.function.__name__))
-            cfg_file.write('y_error_sigma={}\n'.format(
-                self.data['y_error_sigma']))
-            if self.data['x_error_sigma'] is None:
-                cfg_file.write('x_error_sigma=0\n')
-            else:
-                cfg_file.write('x_error_sigma={}\n'.format(
-                    self.data['x_error_sigma']))
-            cfg_file.write('x1={}\n'.format(cpp_format_array(self.data['x1'])))
-            cfg_file.write('y={}\n'.format(cpp_format_array(self.data['y'])))
-            if self.data['x2'] is not None:
-                cfg_file.write('x2={}\n'.format(cpp_format_array(
-                    self.data['x2'])))
-            cfg_file.write('adaptive={}\n'.format(self.adaptive))
+        config_str = ''
+        if isinstance(self.nfunc, list):
+            config_str += 'nfunc={}\n'.format(self.nfunc[-1])
+        else:
+            config_str += 'nfunc={}\n'.format(self.nfunc)
+        config_str += 'fit_func={}\n'.format(self.function.__name__)
+        config_str += 'y_error_sigma={}\n'.format(
+            self.data['y_error_sigma'])
+        if self.data['x_error_sigma'] is None:
+            config_str += 'x_error_sigma=0\n'
+        else:
+            config_str += 'x_error_sigma={}\n'.format(
+                self.data['x_error_sigma'])
+        config_str += 'x1={}\n'.format(cpp_format_array(self.data['x1']))
+        config_str += 'y={}\n'.format(cpp_format_array(self.data['y']))
+        if self.data['x2'] is not None:
+            config_str += 'x2={}\n'.format(cpp_format_array(
+                self.data['x2']))
+        config_str += 'adaptive={}\n'.format(self.adaptive)
+        return config_str
 
 
     def __call__(self, theta):
