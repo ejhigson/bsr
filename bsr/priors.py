@@ -25,6 +25,7 @@ hyperparameter values. The objects be used in the same way as functions
 due to python's "duck typing" (or alternatively you can just define prior
 functions).
 """
+import copy
 import numpy as np
 import scipy
 import bsr.basis_functions as bf
@@ -43,8 +44,8 @@ def prior_to_str(prior, **kwargs):
         name = 'power_uniform'
         parameters = [prior.minimum, prior.maximum, prior.power]
         assert prior.power < 0, (
-            'compiled power_uniform only set up for negative powers. power={}'
-            .format(prior.power))
+            'compiled power_uniform currently only takes negative powers.'
+            'power={}'.format(prior.power))
     elif name == 'gaussian':
         parameters = [getattr(prior, 'mu', 0.0), prior.sigma]
         if getattr(prior, 'half', False):
@@ -57,7 +58,9 @@ def prior_to_str(prior, **kwargs):
         name = 'sorted_' + name
     if getattr(prior, 'adaptive', False):
         name = 'adaptive_' + name
-        parameters.append(prior.nfunc_min)
+        assert getattr(prior, "nfunc_min", 1) == 1, (
+            'compiled adaptive priors currently only take nfunc_min=1.'
+            'prior.nfunc_min={}'.format(prior.nfunc_min))
     return dyPolyChord.polychord_utils.get_prior_block_str(
         name, parameters, nparam, **kwargs)
 
@@ -209,23 +212,18 @@ class BasePrior(object):
         """
         if self.adaptive:
             try:
-                nfunc, theta = adaptive_transform(cube, self.nfunc_min)
+                print("cube, transformed and physical")
+                print(cube)
+                theta = adaptive_transform(
+                    cube, sort=self.sort, nfunc_min=self.nfunc_min)
+                print(theta)
             except ValueError:
                 if np.isnan(cube[0]):
                     return np.full(cube.shape, np.nan)
                 else:
                     raise
-            if self.sort:
-                # Sort only parameters 1 to nfunc
-                theta[1:1 + nfunc] = self.cube_to_physical(
-                    forced_identifiability(cube[1:1 + nfunc]))
-                # Apply prior to remaining unused parameters without sorting
-                if theta.shape[0] > 1 + nfunc:
-                    theta[1 + nfunc:] = self.cube_to_physical(cube[1 + nfunc:])
-                return theta
-            else:
-                theta[1:] = self.cube_to_physical(cube[1:])
-                return theta
+            theta[1:] = self.cube_to_physical(theta[1:])
+            return theta
         else:
             if self.sort:
                 return self.cube_to_physical(forced_identifiability(cube))
@@ -496,8 +494,10 @@ def forced_identifiability(cube):
     return ordered_cube
 
 
-def adaptive_transform(cube, nfunc_min):
-    """Extract adaptive number of functions and return theta array.
+def adaptive_transform(cube, sort=True, nfunc_min=1):
+    """Tranform first parameter (nfunc) to uniform in (nfunc_min, nfunc_max)
+    and, if required, perform forced identifiability transform on the next
+    nfunc parameters only.
 
     Parameters
     ----------
@@ -506,16 +506,18 @@ def adaptive_transform(cube, nfunc_min):
 
     Returns
     -------
-    nfunc: int
-    theta: 1d numpy array
+    ad_cube: 1d numpy array
         First element is physical coordinate of nfunc parameter, other elements
-        are zero.
+        are cube coordinates with any forced identifiability transform already
+        applied.
     """
     # First get integer number of funcs
-    theta = np.zeros(cube.shape)
+    ad_cube = copy.deepcopy(cube)
     nfunc_max = cube.shape[0] - 1
     # first component is a number of funcs
-    theta[0] = ((nfunc_min - 0.5)
-                + (1.0 + nfunc_max - nfunc_min) * cube[0])
-    nfunc = int(np.round(theta[0]))
-    return nfunc, theta
+    ad_cube[0] = ((nfunc_min - 0.5) + (1.0 + nfunc_max - nfunc_min) * cube[0])
+    if sort:
+        nfunc = int(np.round(ad_cube[0]))
+        # Sort only parameters 1 to nfunc
+        ad_cube[1:1 + nfunc] = forced_identifiability(cube[1:1 + nfunc])
+    return ad_cube
