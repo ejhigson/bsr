@@ -78,9 +78,11 @@ def get_default_prior(func, nfunc, **kwargs):
         if func.__name__ in ['gg_1d', 'gg_2d']:
             priors_dict = {'a':     dyPolyChord.python_priors.Exponential(
                 2.0, nfunc_min=nfunc_min, adaptive=adaptive, sort=True),
-                           'mu':    dyPolyChord.python_priors.Uniform(0, 1.0),
-                           'sigma': dyPolyChord.python_priors.Exponential(2.0),
-                           'beta':  dyPolyChord.python_priors.Exponential(0.5)}
+                           'mu':    dyPolyChord.python_priors.Uniform(0.0, 1.0),
+                           'sigma': dyPolyChord.python_priors.Uniform(0.01, 1.0),
+                           'beta':  dyPolyChord.python_priors.Uniform(0.1, 10.0)}
+                           # 'sigma': dyPolyChord.python_priors.Exponential(2.0),
+                           # 'beta':  dyPolyChord.python_priors.Exponential(0.5)}
             if func.__name__ == 'gg_2d':
                 for param in ['mu', 'sigma', 'beta']:
                     priors_dict[param + '1'] = priors_dict[param]
