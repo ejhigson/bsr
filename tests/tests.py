@@ -6,6 +6,7 @@ import unittest
 import numpy as np
 import numpy.testing
 import scipy.special
+import dyPolyChord.python_priors
 import bsr.basis_functions as bf
 import bsr.neural_networks as nn
 import bsr.priors
@@ -241,14 +242,17 @@ class TestData(unittest.TestCase):
 
 class TestPriors(unittest.TestCase):
 
-    """Tests for the priors.py module."""
+    """Tests for the priors.py module. Some of these tests also check the
+    dyPolyChord python priors - this dosn't take long and protects against
+    unexpected changes to dyPolyChord."""
 
     @staticmethod
     def test_uniform():
         """Check uniform prior."""
         prior_scale = 5
         hypercube = np.random.random(5)
-        theta_prior = bsr.priors.Uniform(-prior_scale, prior_scale)(hypercube)
+        theta_prior = dyPolyChord.python_priors.Uniform(
+            -prior_scale, prior_scale)(hypercube)
         theta_check = (hypercube * 2 * prior_scale) - prior_scale
         numpy.testing.assert_allclose(theta_prior, theta_check)
 
@@ -260,13 +264,13 @@ class TestPriors(unittest.TestCase):
             power = -2
             maximum = 20
             minimum = 0.1
-            theta = bsr.priors.PowerUniform(
+            theta = dyPolyChord.python_priors.PowerUniform(
                 minimum, maximum, power=power)(cube)
             # Check this vs doing a uniform prior and transforming
             # Note if power < 0, the high to low order of X is inverted
             umin = min(minimum ** (1 / power), maximum ** (1 / power))
             umax = max(minimum ** (1 / power), maximum ** (1 / power))
-            test_prior = bsr.priors.Uniform(umin, umax)
+            test_prior = dyPolyChord.python_priors.Uniform(umin, umax)
             if power < 0:
                 theta_check = test_prior(1 - cube) ** power
             else:
@@ -279,7 +283,8 @@ class TestPriors(unittest.TestCase):
         """Check spherically symmetric Gaussian prior centred on the origin."""
         prior_scale = 5
         hypercube = np.random.random(5)
-        theta_prior = bsr.priors.Gaussian(prior_scale)(hypercube)
+        theta_prior = dyPolyChord.python_priors.Gaussian(
+            prior_scale)(hypercube)
         theta_check = (scipy.special.erfinv(hypercube * 2 - 1) *
                        prior_scale * np.sqrt(2))
         numpy.testing.assert_allclose(theta_prior, theta_check)
@@ -289,7 +294,8 @@ class TestPriors(unittest.TestCase):
         """Check the exponential prior."""
         prior_scale = 5
         hypercube = np.random.random(5)
-        theta_prior = bsr.priors.Exponential(prior_scale)(hypercube)
+        theta_prior = dyPolyChord.python_priors.Exponential(
+            prior_scale)(hypercube)
         theta_check = -np.log(1 - hypercube) / prior_scale
         numpy.testing.assert_allclose(theta_prior, theta_check)
 
@@ -299,7 +305,8 @@ class TestPriors(unittest.TestCase):
         Note that the PolyChord paper contains a typo in the formulae."""
         n = 5
         hypercube = np.random.random(n)
-        theta_func = bsr.priors.forced_identifiability(hypercube)
+        theta_func = dyPolyChord.python_priors.forced_identifiability(
+            hypercube)
 
         def forced_ident_transform(x):
             """PyPolyChord version of the forced identifiability transform.
@@ -340,7 +347,7 @@ class TestPriors(unittest.TestCase):
         """Check default neural network prior."""
         # Test nn prior
         n_nodes = [2, 3]
-        w_sigma_default = 1
+        w_sigma = 1
         state = np.random.get_state()
         np.random.seed(0)
         # Vanilla
@@ -348,26 +355,28 @@ class TestPriors(unittest.TestCase):
         prior = bsr.priors.get_default_prior(
             nn.nn_fit, n_nodes, adaptive=False)
         expected = np.zeros(cube.shape)
-        expected[:n_nodes[-1]] = bsr.priors.Gaussian(
-            w_sigma_default, sort=True, half=True)(cube[:n_nodes[-1]])
-        expected[n_nodes[-1]:-1] = bsr.priors.Gaussian(
-            w_sigma_default, sort=False)(cube[n_nodes[-1]:-1])
-        expected[-1] = bsr.priors.PowerUniform(0.1, 20, power=-2)(cube[-1])
+        expected[:n_nodes[-1]] = dyPolyChord.python_priors.Gaussian(
+            w_sigma, sort=True, half=True)(cube[:n_nodes[-1]])
+        expected[n_nodes[-1]:-1] = dyPolyChord.python_priors.Gaussian(
+            w_sigma, sort=False)(cube[n_nodes[-1]:-1])
+        expected[-1] = dyPolyChord.python_priors.PowerUniform(
+            0.1, 20, power=-2)(cube[-1])
         numpy.testing.assert_allclose(
             prior(cube), expected, rtol=1e-06, atol=1e-06)
         # Adaptive
         cube = np.random.random(nn.nn_num_params(n_nodes) + 2)
         prior = bsr.priors.get_default_prior(
             nn.nn_fit, n_nodes, adaptive=True,
-            w_sigma_default=w_sigma_default)
+            w_sigma=w_sigma)
         expected = np.zeros(cube.shape)
-        expected[:n_nodes[-1] + 1] = bsr.priors.Gaussian(
-            w_sigma_default, sort=True, adaptive=True, half=True)(
+        expected[:n_nodes[-1] + 1] = dyPolyChord.python_priors.Gaussian(
+            w_sigma, sort=True, adaptive=True, half=True)(
                 cube[:n_nodes[-1] + 1])
-        expected[n_nodes[-1] + 1:] = bsr.priors.Gaussian(
-            w_sigma_default)(cube[n_nodes[-1] + 1:])
+        expected[n_nodes[-1] + 1:] = dyPolyChord.python_priors.Gaussian(
+            w_sigma)(cube[n_nodes[-1] + 1:])
         # Get w_sigma from prior and scale weights
-        expected[-1] = bsr.priors.PowerUniform(0.1, 20, power=-2)(cube[-1])
+        expected[-1] = dyPolyChord.python_priors.PowerUniform(
+            0.1, 20, power=-2)(cube[-1])
         numpy.testing.assert_allclose(prior(cube), expected,
                                       rtol=1e-06, atol=1e-06)
         # return to original random state
