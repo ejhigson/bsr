@@ -139,8 +139,8 @@ def make_base_dict(problem_tups, method_tups, **kwargs):
     nfunc_max_dict = kwargs.pop('nfunc_max_dict',
                                 {'gg': 5, 'ta': 5, 'nn': 10, 'ad': 5})
     y_sigma_2d = kwargs.pop('y_sigma_2d', 0.2)
-    y_sigma_1d = kwargs.pop('y_sigma_1d', 0.05)
-    x_sigma_1d = kwargs.pop('x_sigma_1d', 0.05)
+    y_sigma_1d = kwargs.pop('y_sigma_1d', 0.07)
+    x_sigma_1d = kwargs.pop('x_sigma_1d', 0.07)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     output = {}
