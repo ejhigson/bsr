@@ -33,10 +33,9 @@ import dyPolyChord.python_priors
 
 def get_default_prior(func, nfunc, **kwargs):
     """Construct a default set of priors for the basis function."""
-    nfunc_min = kwargs.pop('nfunc_min', 1)
     global_bias = kwargs.pop('global_bias', False)
     adaptive = kwargs.pop('adaptive', False)
-    w_sigma = kwargs.pop('w_sigma', 5)
+    sigma_w = kwargs.pop('sigma_w', 5)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     assert not global_bias
@@ -51,8 +50,7 @@ def get_default_prior(func, nfunc, **kwargs):
         block_sizes = []
         # Add sorted adaptive parameter on output weights
         prior_blocks.append(dyPolyChord.python_priors.Gaussian(
-            1.0, adaptive=adaptive, nfunc_min=nfunc_min,
-            sort=True, half=len(nfunc) == 2))
+            1.0, adaptive=adaptive, sort=True, half=len(nfunc) == 2))
         if adaptive:
             block_sizes.append(nfunc[-1] + 1)
         else:
@@ -70,20 +68,23 @@ def get_default_prior(func, nfunc, **kwargs):
         # Need to explicitly provide all args rather than use **kwargs as
         # kwargs is now empty due to poping
         gg_prior = get_default_prior(bf.gg_1d, nfunc, global_bias=global_bias,
-                                     nfunc_min=nfunc_min, adaptive=adaptive)
+                                     adaptive=adaptive)
         ta_prior = get_default_prior(bf.ta_1d, nfunc, global_bias=global_bias,
-                                     nfunc_min=nfunc_min, adaptive=adaptive)
+                                     adaptive=adaptive)
         return AdFamPrior(gg_prior, ta_prior, nfunc)
     elif func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d']:
         if func.__name__ in ['gg_1d', 'gg_2d']:
-            priors_dict = {'a':     dyPolyChord.python_priors.Exponential(
-                2.0, nfunc_min=nfunc_min, adaptive=adaptive, sort=True),
-                           'mu':    dyPolyChord.python_priors.Uniform(0.0, 1.0),
-                           'sigma': dyPolyChord.python_priors.Uniform(0.01, 1.0),
-                           'beta':  dyPolyChord.python_priors.Uniform(0.1, 10.0)}
-                           # 'sigma': dyPolyChord.python_priors.Exponential(2.0),
-                           # 'beta':  dyPolyChord.python_priors.Exponential(0.5)}
+            priors_dict = {
+                'a':     dyPolyChord.python_priors.Exponential(
+                    1.0, adaptive=adaptive, sort=True),
+                'mu':    dyPolyChord.python_priors.Uniform(0.0, 1.0),
+                # 0.03 is approx pixel size in 32x32
+                'sigma': dyPolyChord.python_priors.Uniform(0.03, 1.0),
+                'beta':  dyPolyChord.python_priors.Exponential(0.5)}
             if func.__name__ == 'gg_2d':
+                # reduce max sigma from 1.0 to 0.5 for 2d case
+                priors_dict['sigma'] = dyPolyChord.python_priors.Uniform(
+                    0.03, 0.5)
                 for param in ['mu', 'sigma', 'beta']:
                     priors_dict[param + '1'] = priors_dict[param]
                     priors_dict[param + '2'] = priors_dict[param]
@@ -91,12 +92,13 @@ def get_default_prior(func, nfunc, **kwargs):
                 priors_dict['omega'] = dyPolyChord.python_priors.Uniform(
                     -0.25 * np.pi, 0.25 * np.pi)
         elif func.__name__ in ['ta_1d', 'ta_2d']:
-            priors_dict = {'a':   dyPolyChord.python_priors.Gaussian(
-                w_sigma, nfunc_min=nfunc_min, adaptive=adaptive,
-                sort=True, half=True),
-                           'w_0': dyPolyChord.python_priors.Gaussian(w_sigma),
-                           'w_1': dyPolyChord.python_priors.Gaussian(w_sigma),
-                           'w_2': dyPolyChord.python_priors.Gaussian(w_sigma)}
+            priors_dict = {
+                'a':   dyPolyChord.python_priors.Gaussian(
+                    sigma_w, adaptive=adaptive,
+                    sort=True, half=True),
+                'w_0': dyPolyChord.python_priors.Gaussian(sigma_w),
+                'w_1': dyPolyChord.python_priors.Gaussian(sigma_w),
+                'w_2': dyPolyChord.python_priors.Gaussian(sigma_w)}
         # Get a list of the priors we want
         args = bf.get_bf_param_names(func)
         prior_blocks = [priors_dict[arg] for arg in args]
