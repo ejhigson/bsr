@@ -48,8 +48,17 @@ def adfam_gg_ta_1d(x1, theta, nfunc, **kwargs):
     """Adaptive family selection between ta_1d and gg_1d."""
     assert kwargs.get('x2', None) is None
     assert kwargs.get('adaptive')
-    assert 0.5 <= theta[0] <= 2.5, theta[0]
-    if theta[0] < 1.5:
+    try:
+        family = int(np.round(theta[0]))
+        assert family in [1, 2], (
+            "family param T={} not in [1, 2]. theta[0]={}".format(
+                family, theta[0]))
+    except ValueError:
+        if np.isnan(theta[0]):
+            return np.nan * x1  # ensure same type and shape as x1
+        else:
+            raise
+    if family == 1:
         return sum_basis_funcs(gg_1d, theta[1:], nfunc, x1, **kwargs)
     else:
         # ta_1d has 3 params (excluding x1), whereas gg_1d has 4
