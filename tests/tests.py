@@ -68,8 +68,36 @@ class TestBasisFunctions(unittest.TestCase):
         out = bf.sum_basis_funcs(
             basis_func, theta, nfunc, x1, x2=x2, adaptive=True)
         self.assertAlmostEqual(out, basis_func(x1, *theta[1::nfunc]))
+        # check error handling if theta[0] is nan
+        theta[0] = np.nan
+        out = bf.sum_basis_funcs(
+            basis_func, theta, nfunc, x1, x2=x2, adaptive=True)
+        self.assertTrue(np.isnan(out))
         # return to original random state
         np.random.set_state(state)
+
+    def test_adfam_gg_ta_1d(self):
+        """Check 1d adaptive family selection is working ok."""
+        nfunc = 3
+        x1 = np.random.random()
+        theta = np.random.random(2 + (nfunc * 4))
+        theta[1] = 2.3  # 2 funcs should be used
+        # check T=1
+        theta[0] = 1.1
+        self.assertAlmostEqual(
+            bf.adfam_gg_ta_1d(x1, theta, nfunc, adaptive=True),
+            bf.sum_basis_funcs(bf.gg_1d, theta[1:], nfunc, x1, adaptive=True))
+        # check T=2
+        theta[0] = 2.1
+        self.assertAlmostEqual(
+            bf.adfam_gg_ta_1d(x1, theta, nfunc, adaptive=True),
+            bf.sum_basis_funcs(bf.ta_1d, theta[1:-nfunc], nfunc, x1,
+                               adaptive=True))
+        # check error handling when theta[0] is nan
+        theta[0] = np.nan
+        self.assertTrue(
+            np.isnan(bf.adfam_gg_ta_1d(x1, theta, nfunc, adaptive=True)))
+
 
     def test_names(self):
         """Check the parameter naming functions."""
@@ -334,9 +362,10 @@ class TestPriors(unittest.TestCase):
         prior = bsr.priors.get_default_prior(func, nfunc, adaptive=True)
         cube = np.random.random(sum(prior.block_sizes))
         expected = np.array([
-            1.597627, 0.40513, 0.7489, 0.544883, 0.423655, 0.645894,
-            0.437587, 1.111762, 1.657456, 0.241801, 0.784448, 1.505348,
-            1.678866, 5.196508, 0.147371, -0.648536, -0.753639])
+            1.59762701, 0.81025994, 1.49779981, 0.54488318, 0.4236548,
+            0.64589411, 0.43758721, 0.44913331, 0.4829215, 0.21021751,
+            0.40211077, 1.50534822, 1.67886569, 5.19650831, 0.14737071,
+            -0.64853578, -0.75363918])
         numpy.testing.assert_allclose(prior(cube), expected,
                                       rtol=1e-06, atol=1e-06)
         # return to original random state
@@ -347,7 +376,7 @@ class TestPriors(unittest.TestCase):
         """Check default neural network prior."""
         # Test nn prior
         n_nodes = [2, 3]
-        w_sigma = 1
+        sigma_w = 1
         state = np.random.get_state()
         np.random.seed(0)
         # Vanilla
@@ -356,9 +385,9 @@ class TestPriors(unittest.TestCase):
             nn.nn_fit, n_nodes, adaptive=False)
         expected = np.zeros(cube.shape)
         expected[:n_nodes[-1]] = dyPolyChord.python_priors.Gaussian(
-            w_sigma, sort=True, half=True)(cube[:n_nodes[-1]])
+            sigma_w, sort=True, half=True)(cube[:n_nodes[-1]])
         expected[n_nodes[-1]:-1] = dyPolyChord.python_priors.Gaussian(
-            w_sigma, sort=False)(cube[n_nodes[-1]:-1])
+            sigma_w, sort=False)(cube[n_nodes[-1]:-1])
         expected[-1] = dyPolyChord.python_priors.PowerUniform(
             0.1, 20, power=-2)(cube[-1])
         numpy.testing.assert_allclose(
@@ -367,14 +396,14 @@ class TestPriors(unittest.TestCase):
         cube = np.random.random(nn.nn_num_params(n_nodes) + 2)
         prior = bsr.priors.get_default_prior(
             nn.nn_fit, n_nodes, adaptive=True,
-            w_sigma=w_sigma)
+            sigma_w=sigma_w)
         expected = np.zeros(cube.shape)
         expected[:n_nodes[-1] + 1] = dyPolyChord.python_priors.Gaussian(
-            w_sigma, sort=True, adaptive=True, half=True)(
+            sigma_w, sort=True, adaptive=True, half=True)(
                 cube[:n_nodes[-1] + 1])
         expected[n_nodes[-1] + 1:] = dyPolyChord.python_priors.Gaussian(
-            w_sigma)(cube[n_nodes[-1] + 1:])
-        # Get w_sigma from prior and scale weights
+            sigma_w)(cube[n_nodes[-1] + 1:])
+        # Get sigma_w from prior and scale weights
         expected[-1] = dyPolyChord.python_priors.PowerUniform(
             0.1, 20, power=-2)(cube[-1])
         numpy.testing.assert_allclose(prior(cube), expected,
