@@ -140,7 +140,7 @@ def get_data_args(data_func, nfuncs):
     elif data_func.__name__ == 'ta_1d':
         # first arg is sorted
         if nfuncs == 1:
-            data_args = [{'a': 0.7, 'w_0': -0.1, 'w_1': 1.5}]
+            data_args = [{'a': 0.8, 'w_0': 0.0, 'w_1': 1.5}]
         elif nfuncs == 2:
             data_args = [{'a': 0.7, 'w_0': -1, 'w_1': 3},
                          {'a': 0.9, 'w_0': 2, 'w_1': -3}]
