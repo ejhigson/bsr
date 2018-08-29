@@ -38,7 +38,6 @@ class FittingLikelihood(object):
         Set up likelihood object's hyperparameter values.
         """
         self.adaptive = kwargs.pop('adaptive', False)
-        self.global_bias = kwargs.pop('global_bias', False)
         self.use_hyper = kwargs.pop('use_hyper', function.__name__[:2] == 'nn')
         if kwargs:
             raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
@@ -48,7 +47,6 @@ class FittingLikelihood(object):
         self.function = function
         self.nfunc = nfunc
         if self.function.__name__[:2] == 'nn':
-            assert not self.global_bias
             assert isinstance(self.nfunc, list)
             assert len(nfunc) >= 2, nfunc
             if data['x2'] is None:
@@ -58,13 +56,10 @@ class FittingLikelihood(object):
             self.ndim = nn.nn_num_params(self.nfunc)
         elif self.function.__name__ == 'adfam_gg_ta_1d':
             assert self.adaptive
-            assert not self.global_bias
             self.ndim = self.nfunc * len(bf.get_bf_param_names(bf.gg_1d))
             self.ndim += 1  # For adaptive family parameter
         else:
             self.ndim = self.nfunc * len(bf.get_bf_param_names(function))
-        if self.global_bias:
-            self.ndim += 1
         if self.adaptive:
             self.ndim += 1
         if self.use_hyper:
@@ -114,11 +109,11 @@ class FittingLikelihood(object):
         elif self.function.__name__ == 'adfam_gg_ta_1d':
             return self.function(
                 x1, theta, self.nfunc, x2=x2,
-                global_bias=self.global_bias, adaptive=self.adaptive)
+                adaptive=self.adaptive)
         else:
             return bf.sum_basis_funcs(
                 self.function, theta, self.nfunc, x1, x2=x2,
-                global_bias=self.global_bias, adaptive=self.adaptive)
+                adaptive=self.adaptive)
 
     def get_param_names(self):
         """Get list of parameter names as str."""
@@ -134,8 +129,6 @@ class FittingLikelihood(object):
             for param in bf_params:
                 for i in range(self.nfunc):
                     param_names.append('{0}_{1}'.format(param, i + 1))
-            if self.global_bias:
-                param_names = ['a_0'] + param_names
             if self.adaptive:
                 param_names = ['N'] + param_names
             if self.function.__name__ == 'adfam_gg_ta_1d':
@@ -164,8 +157,6 @@ class FittingLikelihood(object):
                     for i in range(self.nfunc):
                         param_names.append('{0}_{1}$'.format(
                             param[:-1], i + 1))
-            if self.global_bias:
-                param_names = ['$a_0$'] + param_names
             if self.adaptive:
                 param_names = ['$N$'] + param_names
             assert len(param_names) == self.ndim

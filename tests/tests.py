@@ -224,8 +224,10 @@ class TestNeuralNetworks(unittest.TestCase):
             nn.nn_2l(x, theta[1:], n_nodes, adaptive=True))
         # First param is nan
         theta[0] = np.nan
-        self.assertTrue(np.isnan(nn.nn_adl(x, theta, n_nodes, adaptive=True)))
-        self.assertTrue(np.isnan(nn.nn_adl(x[0], theta, n_nodes, adaptive=True)))
+        self.assertTrue(np.isnan(nn.nn_adl(
+            x, theta, n_nodes, adaptive=True)))
+        self.assertTrue(np.isnan(nn.nn_adl(
+            x[0], theta, n_nodes, adaptive=True)))
 
     def test_param_names(self):
         """Check parameter naming functions."""
@@ -412,7 +414,7 @@ class TestPriors(unittest.TestCase):
         numpy.testing.assert_allclose(theta_func, theta_check)
 
     @staticmethod
-    def test_default_priors():
+    def test_default_gg_2d_prior():
         """Check the numerical values from the default prior."""
         # save initial random state
         state = np.random.get_state()
@@ -431,6 +433,130 @@ class TestPriors(unittest.TestCase):
                                       rtol=1e-06, atol=1e-06)
         # return to original random state
         np.random.set_state(state)
+
+    @staticmethod
+    def test_default_gg_1d_prior():
+        """Check the numerical values from the default prior."""
+        # save initial random state
+        state = np.random.get_state()
+        np.random.seed(0)
+        # Test gg_2d prior
+        nfunc = 2
+        func = bf.gg_1d
+        prior = bsr.priors.get_default_prior(func, nfunc, adaptive=True)
+        cube = np.random.random(sum(prior.block_sizes))
+        expected = np.array([
+            1.59762701, 0.81025994, 1.49779981, 0.54488318, 0.4236548,
+            0.65651729, 0.45445959, 4.44704883, 6.62982436])
+        numpy.testing.assert_allclose(prior(cube), expected,
+                                      rtol=1e-06, atol=1e-06)
+        # return to original random state
+        np.random.set_state(state)
+
+    @staticmethod
+    def test_default_ta_1d_prior():
+        """Check the numerical values from the default prior."""
+        # save initial random state
+        state = np.random.get_state()
+        np.random.seed(0)
+        nfunc = 2
+        func = bf.ta_1d
+        prior = bsr.priors.get_default_prior(func, nfunc, adaptive=True)
+        cube = np.random.random(sum(prior.block_sizes))
+        expected = np.array([
+            1.59762701, 3.82104718, 6.08477118, 0.56371926, -0.96276154,
+            1.87129405, -0.7854468])
+        numpy.testing.assert_allclose(prior(cube), expected,
+                                      rtol=1e-06, atol=1e-06)
+        # return to original random state
+        np.random.set_state(state)
+
+    @staticmethod
+    def test_default_adfam_gg_ta_1d_prior():
+        """Check the numerical values from the default prior."""
+        # save initial random state
+        state = np.random.get_state()
+        np.random.seed(0)
+        # Test gg_2d prior
+        nfunc = 2
+        func = bf.adfam_gg_ta_1d
+        prior = bsr.priors.get_default_prior(func, nfunc, adaptive=True)
+        cube = np.random.random(sum(
+            prior.long_prior.block_sizes) + 1)
+        # test T=1
+        cube[0] = 0.25
+        expected = np.array([
+            1.00000000, 1.93037873, 0.58867373, 1.3400294, 0.4236548,
+            0.64589411, 0.45445959, 0.89501981, 6.62982436, 0.9672042])
+        numpy.testing.assert_allclose(prior(cube), expected,
+                                      rtol=1e-06, atol=1e-06)
+        # test T=2
+        cube[0] = 0.75
+        expected = np.array([
+            2.00000000, 1.93037873, 2.95095234, 5.61028777, -0.96276154,
+            1.87129405, -0.7854468, 6.18006141, 6.62982436, 0.9672042])
+        numpy.testing.assert_allclose(prior(cube), expected,
+                                      rtol=1e-06, atol=1e-06)
+        # return to original random state
+        np.random.set_state(state)
+
+
+    @staticmethod
+    def test_default_nn_adl_prior():
+        """Check the numerical values from the default prior."""
+        # save initial random state
+        state = np.random.get_state()
+        np.random.seed(0)
+        # Test gg_2d prior
+        nfunc = [2, 4, 4]
+        func = nn.nn_adl
+        prior = bsr.priors.get_default_prior(func, nfunc, adaptive=True)
+        cube = np.random.random(sum(
+            prior.long_prior.block_sizes) + 1)
+        # test T=1
+        # --------
+        cube[0] = 0.25
+        expected = np.array([
+            1.00000000, 3.36075747, 0.43188003, 0.76276923, 1.15291132,
+            0.92665462, -0.15708936, 1.23601228, 1.7948696, -0.29645446,
+            0.81242131, 0.07249227, 0.17139794, 1.44375920, -1.46811821,
+            -1.35864661, -2.04925901, 0.96456985, 0.76598286, 2.72665814,
+            2.02601434, 0.83861949, -0.09670745, 0.77398164, -1.18365704,
+            0.35824769, -1.06537432, 1.59522395, 0.05479303, -0.2155688,
+            -0.62936332, 0.75286237, -0.11013708, 0.17238851, -2.07941089,
+            0.2992766, 0.28478540, 0.29743817, 1.58703886, 0.74491857])
+        numpy.testing.assert_allclose(prior(cube), expected,
+                                      rtol=1e-06, atol=1e-06)
+        # Check is the same as nn_1l prior
+        nfunc_1l = [nfunc[0], nfunc[-1]]
+        nparam_1l = nn.nn_num_params(nfunc_1l) + 1
+        prior_1l = bsr.priors.get_default_prior(
+            nn.nn_1l, nfunc_1l, adaptive=True)
+        numpy.testing.assert_allclose(
+            prior(cube)[1:1 + nparam_1l], prior_1l(cube[1:1 + nparam_1l]),
+            rtol=1e-06, atol=1e-06)
+        # test T=2
+        # --------
+        cube[0] = 0.75
+        expected = np.array([
+            2.00000000, 3.36075747, -0.42842354, 0.13678332, 0.6778078,
+            0.37425881, -0.15708936, 1.23601228, 1.7948696, -0.29645446,
+            0.81242131, 0.07249227, 0.17139794, 1.4437592, -1.46811821,
+            -1.35864661, -2.04925901, 0.96456985, 0.76598286, 1.12644856,
+            2.02601434, 0.83861949, -0.09670745, 0.77398164, -1.18365704,
+            0.35824769, -1.06537432, 1.59522395, 0.05479303, -0.21556880,
+            -0.62936332, 0.75286237, -0.11013708, 0.17238851, -2.07941089,
+            0.29927660, 0.28478540, 0.29743817, 1.58703886, 0.74491857])
+        numpy.testing.assert_allclose(prior(cube), expected,
+                                      rtol=1e-06, atol=1e-06)
+        # Check is the same as nn_2l prior
+        prior_2l = bsr.priors.get_default_prior(
+            nn.nn_2l, nfunc, adaptive=True)
+        numpy.testing.assert_allclose(
+            prior(cube)[1:], prior_2l(cube[1:]), rtol=1e-06, atol=1e-06)
+        # return to original random state
+        np.random.set_state(state)
+
 
     @staticmethod
     def test_nn_prior():

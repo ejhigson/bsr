@@ -33,14 +33,20 @@ import dyPolyChord.python_priors
 
 def get_default_prior(func, nfunc, **kwargs):
     """Construct a default set of priors for the basis function."""
-    global_bias = kwargs.pop('global_bias', False)
     adaptive = kwargs.pop('adaptive', False)
     sigma_w = kwargs.pop('sigma_w', 5)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
-    assert not global_bias
     # specify default priors
-    if func.__name__[:2] == 'nn':
+    if func.__name__ == 'nn_adl':
+        assert isinstance(nfunc, list)
+        assert len(nfunc) == 3
+        assert adaptive
+        nfunc_1l = [nfunc[0], nfunc[-1]]
+        return AdFamPrior([
+            get_default_prior(nn.nn_1l, nfunc_1l, adaptive=adaptive),
+            get_default_prior(nn.nn_2l, nfunc, adaptive=adaptive)])
+    elif func.__name__[:2] == 'nn':
         # Neural network prior. Here nfunc is a list of numbers of nodes
         # Note all physical coordinates are scaled by hyperparameter (final
         # parameter in prior) and hence use sigma=1
@@ -67,11 +73,9 @@ def get_default_prior(func, nfunc, **kwargs):
         assert adaptive
         # Need to explicitly provide all args rather than use **kwargs as
         # kwargs is now empty due to poping
-        gg_prior = get_default_prior(bf.gg_1d, nfunc, global_bias=global_bias,
-                                     adaptive=adaptive)
-        ta_prior = get_default_prior(bf.ta_1d, nfunc, global_bias=global_bias,
-                                     adaptive=adaptive)
-        return AdFamPrior(gg_prior, ta_prior, nfunc)
+        return AdFamPrior([
+            get_default_prior(bf.gg_1d, nfunc, adaptive=adaptive),
+            get_default_prior(bf.ta_1d, nfunc, adaptive=adaptive)])
     elif func.__name__ in ['gg_1d', 'gg_2d', 'ta_1d', 'ta_2d']:
         if func.__name__ in ['gg_1d', 'gg_2d']:
             priors_dict = {
@@ -116,11 +120,29 @@ class AdFamPrior(object):
     functions. First coordinate selects family, then different priors are
     applied to the remaining coordinates depending on its value."""
 
-    def __init__(self, gg_1d_prior, ta_1d_prior, nfunc):
-        """Store the different blocks and block sizes for each family."""
-        self.gg_1d_prior = gg_1d_prior
-        self.ta_1d_prior = ta_1d_prior
-        self.nfunc = nfunc
+    def __init__(self, block_prior_list):
+        """Store the block priors for each family.
+
+        Parameters
+        ----------
+        block_prior_list: list of block prior objects
+            Must have length 2.
+            First element corresponds to family T=1 and second element to
+            family T=2.
+        """
+        assert len(block_prior_list) == 2, len(block_prior_list)
+        # Find out which list is longer
+        prior_sizes = [sum(pri.block_sizes) for pri in block_prior_list]
+        if prior_sizes[0] >= prior_sizes[1]:
+            self.long_prior = block_prior_list[0]
+            self.long_prior_t = 1
+            self.short_prior = block_prior_list[1]
+            self.short_prior_size = prior_sizes[1]
+        else:
+            self.long_prior = block_prior_list[1]
+            self.long_prior_t = 2
+            self.short_prior = block_prior_list[0]
+            self.short_prior_size = prior_sizes[0]
 
     def __call__(self, cube):
         """
@@ -139,9 +161,15 @@ class AdFamPrior(object):
         """
         theta = np.zeros(cube.shape)
         theta[0] = dyPolyChord.python_priors.Uniform(0.5, 2.5)(cube[0])
-        # Calculate gg prior even if func is ta, so parameters unused by ta
-        # are drawn from the gg prior
-        theta[1:] = self.gg_1d_prior(cube[1:])
-        if theta[0] >= 1.5:
-            theta[1:-self.nfunc] = self.ta_1d_prior(cube[1:-self.nfunc])
+        # Apply the longer of the two priors, as we want the trailing values to
+        # be filled in with this prior even if the shorter perio is chosen
+        theta[1:] = self.long_prior(cube[1:])
+        try:
+            nfam = int(np.round(theta[0]))
+        except ValueError:
+            return np.full(cube.shape, np.nan)
+        assert nfam in [1, 2], nfam
+        if nfam != self.long_prior_t:
+            theta[1:self.short_prior_size + 1] = self.short_prior(
+                cube[1:self.short_prior_size + 1])
         return theta

@@ -64,6 +64,7 @@ def adfam_gg_ta_1d(x1, theta, nfunc, **kwargs):
         # ta_1d has 3 params (excluding x1), whereas gg_1d has 4
         return sum_basis_funcs(ta_1d, theta[1:-nfunc], nfunc, x1, **kwargs)
 
+
 # Helper functions
 # ----------------
 
