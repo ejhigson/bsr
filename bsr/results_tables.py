@@ -198,7 +198,7 @@ def get_results_df(results_dict, **kwargs):
     df_list = []
     for prob_key, prob_data in results_dict.items():
         meth_df_list = []
-        adfam = ('adfam' in prob_key[0])
+        adfam = prob_key[0] in ['adfam_gg_ta_1d', 'nn_adl']
         nfunc_list = bsr.results_utils.nfunc_list_union(prob_data)
         if any(isinstance(nf, list) for nf in nfunc_list):
             assert all(isinstance(nf, list) for nf in nfunc_list), nfunc_list
