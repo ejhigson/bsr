@@ -395,8 +395,7 @@ class TestPriors(unittest.TestCase):
         # Adaptive
         cube = np.random.random(nn.nn_num_params(n_nodes) + 2)
         prior = bsr.priors.get_default_prior(
-            nn.nn_fit, n_nodes, adaptive=True,
-            sigma_w=sigma_w)
+            nn.nn_fit, n_nodes, adaptive=True)
         expected = np.zeros(cube.shape)
         expected[:n_nodes[-1] + 1] = dyPolyChord.python_priors.Gaussian(
             sigma_w, sort=True, adaptive=True, half=True)(
@@ -408,6 +407,20 @@ class TestPriors(unittest.TestCase):
             0.1, 20, power=-2)(cube[-1])
         numpy.testing.assert_allclose(prior(cube), expected,
                                       rtol=1e-06, atol=1e-06)
+        # Multiple hidden layers
+        n_nodes = [2, 4, 4]
+        cube = np.random.random(nn.nn_num_params(n_nodes) + 1)
+        expected = np.zeros(cube.shape)
+        prior = bsr.priors.get_default_prior(
+            nn.nn_2l, n_nodes, adaptive=False)
+        expected[:n_nodes[-1]] = dyPolyChord.python_priors.Gaussian(
+            sigma_w, sort=True, half=False)(cube[:n_nodes[-1]])
+        expected[n_nodes[-1]:-1] = dyPolyChord.python_priors.Gaussian(
+            sigma_w, sort=False)(cube[n_nodes[-1]:-1])
+        expected[-1] = dyPolyChord.python_priors.PowerUniform(
+            0.1, 20, power=-2)(cube[-1])
+        numpy.testing.assert_allclose(
+            prior(cube), expected, rtol=1e-06, atol=1e-06)
         # return to original random state
         np.random.set_state(state)
 
