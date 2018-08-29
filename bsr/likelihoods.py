@@ -79,15 +79,13 @@ class FittingLikelihood(object):
                 hyper = theta[-1]
                 # remove hyperparameter - deepcopy needed as theta imutable
                 theta = copy.deepcopy(theta[:-1])
-                if self.adaptive:
+                if self.function.__name__ == 'nn_adl':
+                    assert self.adaptive
+                    theta[2:] *= hyper  # don't scale int parameters
+                elif self.adaptive:
                     theta[1:] *= hyper  # don't scale adaptive int parameter
                 else:
                     theta *= hyper
-            if self.adaptive:
-                # adaptive_theta function removes the first element of theta
-                # and zeros elements corresponding to deselected nodes. Note
-                # that the returned theta array is therefore shorter.
-                theta = nn.adaptive_theta(theta, self.nfunc)
             if isinstance(x1, (int, float)):
                 # This is just a single example (M=1), so we will output a
                 # scalar
@@ -95,20 +93,23 @@ class FittingLikelihood(object):
                     x = x1
                 else:
                     x = np.asarray([x1, x2])
-                return self.function(x, theta, self.nfunc)
+                return self.function(
+                    x, theta, self.nfunc, adaptive=self.adaptive)
             else:
                 # We need to reshape to array with shape (ndim, M) where M is
                 # number of data points
                 if x2 is None:
                     assert x1.ndim == 1, x1.shape
                     x = x1.reshape((1, x1.shape[0]))
-                    return self.function(x, theta, self.nfunc)
+                    return self.function(
+                        x, theta, self.nfunc, adaptive=self.adaptive)
                 else:
                     assert x1.shape == x2.shape
                     x = np.zeros((2, x1.size))
                     x[0, :] = x1.flatten(order='C')
                     x[1, :] = x2.flatten(order='C')
-                    out = self.function(x, theta, self.nfunc)
+                    out = self.function(
+                        x, theta, self.nfunc, adaptive=self.adaptive)
                     return out.reshape(x1.shape, order='C')
         elif self.function.__name__ == 'adfam_gg_ta_1d':
             return self.function(

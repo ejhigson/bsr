@@ -125,6 +125,16 @@ class TestNeuralNetworks(unittest.TestCase):
         theta = np.random.random(n_params)
         out_nn = nn.nn_fit(x, theta, n_nodes)
         self.assertAlmostEqual(0.6771527317141491, out_nn)
+        # check with float arg
+        self.assertAlmostEqual(out_nn, nn.nn_fit(x[0], theta, n_nodes))
+        # check with array input
+        self.assertAlmostEqual(
+            out_nn,
+            nn.nn_fit(np.append(x, -10).reshape((1, 2)), theta, n_nodes)[0])
+        # check adaptive - prepend n_nodes so all params used
+        theta_ad = np.insert(theta, 0, n_nodes[-1])
+        self.assertAlmostEqual(
+            out_nn, nn.nn_fit(x, theta_ad, n_nodes, adaptive=True))
         # Check vs tanh basis function sum (should be equivalent)
         theta_bf = np.zeros(theta.shape)
         theta_bf[0] = theta[-1]  # global bias at front for bf but back for nn
@@ -173,14 +183,59 @@ class TestNeuralNetworks(unittest.TestCase):
         self.assertAlmostEqual(0.821340316965994, out_nn)
         np.random.set_state(state)  # return to original random state
 
+    def test_nn_fit_wrappers(self):
+        """Check wrapper funcs."""
+        # nn_1l
+        # -----
+        state = np.random.get_state()  # save initial random state
+        np.random.seed(0)
+        n_nodes = [2, 5]
+        x = np.random.random(n_nodes[0])
+        theta = np.random.random(nn.nn_num_params(n_nodes))
+        self.assertEqual(
+            nn.nn_fit(x, theta, n_nodes),
+            nn.nn_1l(x, theta, n_nodes))
+        # nn_2l
+        # -----
+        n_nodes = [2, 4, 4]
+        x = np.random.random(n_nodes[0])
+        theta = np.random.random(nn.nn_num_params(n_nodes))
+        self.assertEqual(
+            nn.nn_fit(x, theta, n_nodes),
+            nn.nn_2l(x, theta, n_nodes))
+        # nn_adl
+        # ------
+        n_nodes = [2, 6, 6]
+        x = np.random.random(n_nodes[0])
+        theta = np.random.random(nn.nn_num_params(n_nodes) + 2)
+        theta[1] = 3  # nfunc adaptive
+        # n_layer = 1
+        theta[0] = 1
+        n_nodes_1l = [n_nodes[0], n_nodes[-1]]
+        self.assertEqual(
+            nn.nn_adl(x, theta, n_nodes, adaptive=True),
+            nn.nn_1l(x, theta[1:2 + nn.nn_num_params(n_nodes_1l)],
+                     n_nodes_1l, adaptive=True))
+        np.random.set_state(state)  # return to original random state
+        # n_layer = 2
+        theta[0] = 2
+        self.assertEqual(
+            nn.nn_adl(x, theta, n_nodes, adaptive=True),
+            nn.nn_2l(x, theta[1:], n_nodes, adaptive=True))
+        # First param is nan
+        theta[0] = np.nan
+        self.assertTrue(np.isnan(nn.nn_adl(x, theta, n_nodes, adaptive=True)))
+        self.assertTrue(np.isnan(nn.nn_adl(x[0], theta, n_nodes, adaptive=True)))
+
     def test_param_names(self):
         """Check parameter naming functions."""
         n_nodes = [2, 3]
         n_params = nn.nn_num_params(n_nodes)
         self.assertEqual(
-            len(nn.get_nn_param_names(n_nodes, use_hyper=False)), n_params)
+            len(nn.get_nn_param_names(n_nodes, use_hyper=True)),
+            n_params + 1)
         self.assertEqual(len(nn.get_nn_param_latex_names(
-            n_nodes, use_hyper=False)), n_params)
+            n_nodes, use_hyper=True)), n_params + 1)
 
     def test_nn_flatten_parameters(self):
         """Check parameter naming functions."""
@@ -211,6 +266,12 @@ class TestNeuralNetworks(unittest.TestCase):
         out_v = nn.nn_fit(x, theta_v, n_nodes_v)
         print(out_v, out_a)
         self.assertAlmostEqual(out_a, out_v)
+        # Nan handling
+        theta_a = np.full(nn.nn_num_params(n_nodes_a) + 1, value)
+        theta_a[0] = np.nan
+        self.assertTrue(np.all(np.isnan(
+            nn.adaptive_theta(theta_a, n_nodes_a))))
+
 
 
 class TestData(unittest.TestCase):

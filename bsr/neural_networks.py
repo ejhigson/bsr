@@ -10,10 +10,14 @@ def nn_fit(x, params, n_nodes, **kwargs):
     """Get output from a neural network."""
     act_func = kwargs.pop('act_func', np.tanh)
     out_act_func = kwargs.pop('out_act_func', bf.sigmoid_func)
+    adaptive = kwargs.pop('adaptive', False)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)
     assert len(n_nodes) >= 2, n_nodes
+    if adaptive:
+        # Remove int paramater and zero unnneded params as appropriate
+        params = adaptive_theta(params, n_nodes)
     if isinstance(x, (float, int)):
         inputs = np.atleast_2d(x)
     else:
@@ -41,29 +45,45 @@ def nn_fit(x, params, n_nodes, **kwargs):
     else:
         return inputs[0, :]
 
-
 def nn_1l(x, params, n_nodes, **kwargs):
     """Wapper to allow specification of number of layers via function name."""
+    assert len(n_nodes) == 2, n_nodes
     return nn_fit(x, params, n_nodes, **kwargs)
 
 
 def nn_2l(x, params, n_nodes, **kwargs):
     """Wapper to allow specification of number of layers via function name."""
+    assert len(n_nodes) == 3, n_nodes
     return nn_fit(x, params, n_nodes, **kwargs)
 
-
-def get_nn_param_names(n_nodes, use_hyper=True):
-    """get names for the neural network parameters."""
-    assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)
-    param_names = ['a_{}'.format(i) for i in range(n_nodes[-1] + 1)]
-    for layer, n_node_layer in enumerate(n_nodes[:-1]):
-        for i_from in range(n_node_layer + 1):
-            for i_too in range(1, n_nodes[layer + 1] + 1):
-                param_names.append('w_{}_{}_{}'.format(i_from, i_too, layer))
-    assert len(param_names) == nn_num_params(n_nodes), param_names
-    if use_hyper:
-        param_names.append('sigma_w')
-    return param_names
+def nn_adl(x, params, n_nodes, **kwargs):
+    """Neural network with adaptive number of hidden layers."""
+    assert kwargs.get('adaptive')
+    try:
+        nlayer = int(np.round(params[0]))
+        assert nlayer in [1, 2], (
+            "nlayer param T={} not in [1, 2]. theta[0]={}".format(
+                nlayer, params[0]))
+    except ValueError:
+        if np.isnan(params[0]):
+            if isinstance(x, (float, int)):
+                return np.nan
+            else:
+                assert isinstance(x, np.ndarray), x
+                if x.ndim == 1:
+                    x = np.atleast_2d(x).T
+                assert x.ndim == 2, x.ndim
+                assert n_nodes[0] == x.shape[0], (
+                    'x.shape={} n_nodes={}'.format(x.shape, n_nodes))
+                return np.full(x.shape[1], np.nan)
+        else:
+            raise
+    if nlayer == 1:
+        n_nodes_1l = [n_nodes[0], n_nodes[-1]]
+        return nn_1l(x, params[1:2 + nn_num_params(n_nodes_1l)],
+                     n_nodes_1l, **kwargs)
+    else:
+        return nn_2l(x, params[1:], n_nodes, **kwargs)
 
 
 def adaptive_theta(theta, n_nodes):
@@ -90,6 +110,20 @@ def adaptive_theta(theta, n_nodes):
             return np.full(theta.shape[0] - 1, np.nan)
         else:
             raise
+
+
+def get_nn_param_names(n_nodes, use_hyper=True):
+    """get names for the neural network parameters."""
+    assert isinstance(n_nodes, list), 'n_nodes={} is not list'.format(n_nodes)
+    param_names = ['a_{}'.format(i) for i in range(n_nodes[-1] + 1)]
+    for layer, n_node_layer in enumerate(n_nodes[:-1]):
+        for i_from in range(n_node_layer + 1):
+            for i_too in range(1, n_nodes[layer + 1] + 1):
+                param_names.append('w_{}_{}_{}'.format(i_from, i_too, layer))
+    assert len(param_names) == nn_num_params(n_nodes), param_names
+    if use_hyper:
+        param_names.append('sigma_w')
+    return param_names
 
 
 def get_nn_param_latex_names(n_nodes, use_hyper=True):

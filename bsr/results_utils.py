@@ -121,7 +121,7 @@ def get_nfunc_list(fit_func, adaptive, data, nfunc_max_dict):
     else:
         nfunc_list = list(range(1, nfunc_max + 1))
     if fit_func.__name__[:2] == 'nn':
-        if fit_func.__name__[-2:] == '2l':
+        if fit_func.__name__ in ['nn_2l', 'nn_adl']:
             layers = 2
         else:
             layers = 1
