@@ -6,6 +6,7 @@ import bsr.likelihoods
 import bsr.priors
 import bsr.data
 import bsr.basis_functions as bf
+import bsr.neural_networks as nn
 
 
 def load_data(problem_tups, method_tups, inds, **kwargs):
@@ -164,7 +165,7 @@ def make_base_dict(problem_tups, method_tups, **kwargs):
                 fit_func, adaptive, data, nfunc_max_dict)
             likelihood_list = []
             prior_list = []
-            if fit_func.__name__[:5] == 'adfam' and not adaptive:
+            if fit_func.__name__ == 'adfam_gg_1d_ta_1d' and not adaptive:
                 for nfunc in nfunc_list:
                     likelihood_list.append(bsr.likelihoods.FittingLikelihood(
                         data, bf.gg_1d, nfunc, adaptive=adaptive))
@@ -175,6 +176,18 @@ def make_base_dict(problem_tups, method_tups, **kwargs):
                         data, bf.ta_1d, nfunc, adaptive=adaptive))
                     prior_list.append(bsr.priors.get_default_prior(
                         bf.ta_1d, nfunc, adaptive=adaptive))
+            elif fit_func.__name__ == 'nn_adl' and not adaptive:
+                for nfunc in nfunc_list:
+                    likelihood_list.append(bsr.likelihoods.FittingLikelihood(
+                        data, nn.nn_1l, [nfunc[0], nfunc[-1]],
+                        adaptive=adaptive))
+                    prior_list.append(bsr.priors.get_default_prior(
+                        nn.nn_1l, [nfunc[0], nfunc[-1]], adaptive=adaptive))
+                for nfunc in nfunc_list:
+                    likelihood_list.append(bsr.likelihoods.FittingLikelihood(
+                        data, nn.nn_2l, nfunc, adaptive=adaptive))
+                    prior_list.append(bsr.priors.get_default_prior(
+                        nn.nn_2l, nfunc, adaptive=adaptive))
             else:
                 for nfunc in nfunc_list:
                     # Make likelihood, prior and run func
