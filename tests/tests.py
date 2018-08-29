@@ -471,8 +471,7 @@ class TestPriors(unittest.TestCase):
         # return to original random state
         np.random.set_state(state)
 
-    @staticmethod
-    def test_default_adfam_gg_ta_1d_prior():
+    def test_default_adfam_gg_ta_1d_prior(self):
         """Check the numerical values from the default prior."""
         # save initial random state
         state = np.random.get_state()
@@ -497,6 +496,9 @@ class TestPriors(unittest.TestCase):
             1.87129405, -0.7854468, 6.18006141, 6.62982436, 0.9672042])
         numpy.testing.assert_allclose(prior(cube), expected,
                                       rtol=1e-06, atol=1e-06)
+        # test error handling of nans
+        cube[0] = np.nan
+        self.assertTrue(np.all(np.isnan(prior(cube))))
         # return to original random state
         np.random.set_state(state)
 
