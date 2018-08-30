@@ -25,10 +25,12 @@ hyperparameter values. The objects be used in the same way as functions
 due to python's "duck typing" (or alternatively you can just define prior
 functions).
 """
+import copy
 import numpy as np
 import bsr.basis_functions as bf
 import bsr.neural_networks as nn
 import dyPolyChord.python_priors
+import dyPolyChord.polychord_utils
 
 
 def get_default_prior(func, nfunc, **kwargs):
@@ -173,3 +175,25 @@ class AdFamPrior(object):
             theta[1:self.short_prior_size + 1] = self.short_prior(
                 cube[1:self.short_prior_size + 1])
         return theta
+
+
+def bsr_prior_to_str(prior_obj):
+    """Helper for mapping priors to PolyChord ini strings which deals with
+    adaptive family priors."""
+    if type(prior_obj).__name__ == 'BlockPrior':
+        return dyPolyChord.polychord_utils.python_block_prior_to_str(prior_obj)
+    assert type(prior_obj).__name__ == 'AdfamPrior', (
+        'Unexpected input object type: {}'.format(
+            type(prior_obj).__name__))
+    # Check this is a Neural Networks adfam prior (not set up for 1d basis
+    # functions one)
+    assert type(prior_obj.long_prior.prior_blocks[0]).__name__ == 'Gaussian', (
+        type(prior_obj.long_prior.prior_blocks[0]).__name__)
+    assert prior_obj.long_prior.prior_blocks[0].sort
+    assert prior_obj.long_prior.prior_blocks[0].adaptive
+    assert not prior_obj.long_prior.prior_blocks[0].half
+    temp_prior = copy.deepcopy(prior_obj.long_prior)
+    temp_prior.block_sizes[0] += 1
+    string = dyPolyChord.polychord_utils.python_block_prior_to_str(temp_prior)
+    return string.replace('adaptive_sorted_gaussian',
+                          'nn_adaptive_layer_gaussian')
