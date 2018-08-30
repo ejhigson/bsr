@@ -54,6 +54,9 @@ class FittingLikelihood(object):
             else:
                 assert nfunc[0] == 2
             self.ndim = nn.nn_num_params(self.nfunc)
+            if self.function.__name__ == 'nn_adl':
+                assert self.adaptive
+                self.ndim += 1
         elif self.function.__name__ == 'adfam_gg_ta_1d':
             assert self.adaptive
             self.ndim = self.nfunc * len(bf.get_bf_param_names(bf.gg_1d))

@@ -182,7 +182,7 @@ def bsr_prior_to_str(prior_obj):
     adaptive family priors."""
     if type(prior_obj).__name__ == 'BlockPrior':
         return dyPolyChord.polychord_utils.python_block_prior_to_str(prior_obj)
-    assert type(prior_obj).__name__ == 'AdfamPrior', (
+    assert type(prior_obj).__name__ == 'AdFamPrior', (
         'Unexpected input object type: {}'.format(
             type(prior_obj).__name__))
     # Check this is a Neural Networks adfam prior (not set up for 1d basis
