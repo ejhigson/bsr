@@ -165,7 +165,7 @@ def make_base_dict(problem_tups, method_tups, **kwargs):
                 fit_func, adaptive, data, nfunc_max_dict)
             likelihood_list = []
             prior_list = []
-            if fit_func.__name__ == 'adfam_gg_1d_ta_1d' and not adaptive:
+            if fit_func.__name__ == 'adfam_gg_ta_1d' and not adaptive:
                 for nfunc in nfunc_list:
                     likelihood_list.append(bsr.likelihoods.FittingLikelihood(
                         data, bf.gg_1d, nfunc, adaptive=adaptive))
