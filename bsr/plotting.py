@@ -24,7 +24,17 @@ def plot_bars(df, **kwargs):
     assert len(df.index.names) == 3
     assert df.index.names[-1] == 'result type', df.index.names
     adfam = kwargs.pop('adfam', False)
-    log_ratios = kwargs.pop('log_ratios', True)
+    method_list = kwargs.pop(
+        'method_list',
+        sort_method_list(list(set(df.index.get_level_values(0)))))
+    ymin = kwargs.pop('ymin', -10)
+    figsize = kwargs.pop('figsize', (3, 2))
+    colors = kwargs.pop('colors', ['lightgrey', 'grey', 'black', 'darkblue',
+                                   'darkred'])
+    nn_xlabel = kwargs.pop('nn_xlabel', False)
+    calc_type = kwargs.pop('calc_type')
+    max_unc = kwargs.pop('max_unc', True)
+    log_ratios = kwargs.pop('log_ratios', 'log' in calc_type)
     if log_ratios:
         default_title = 'log posterior odds ratios'
     else:
@@ -32,16 +42,7 @@ def plot_bars(df, **kwargs):
             default_title = 'posterior distribution of $T,N$'
         else:
             default_title = 'posterior distribution of $N$'
-    method_list = kwargs.pop(
-        'method_list',
-        sort_method_list(list(set(df.index.get_level_values(0)))))
     title = kwargs.pop('title', default_title)
-    ymin = kwargs.pop('ymin', -10)
-    figsize = kwargs.pop('figsize', (3, 2))
-    colors = kwargs.pop('colors', ['lightgrey', 'grey', 'black', 'darkblue',
-                                   'darkred'])
-    nn_xlabel = kwargs.pop('nn_xlabel', False)
-    calc_type = kwargs.pop('calc_type')
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     # Make the plot
@@ -60,12 +61,13 @@ def plot_bars(df, **kwargs):
         if log_ratios:
             values -= values.max()
         unc = df.loc[(method, calc_type, 'uncertainty')].values
-        try:
-            unc_sep_key = (method, calc_type + ' sep mean', 'uncertainty')
-            unc_sep = df.loc[unc_sep_key].values
-            unc = np.maximum(unc, unc_sep)
-        except KeyError:
-            print('key error for', unc_sep_key)
+        if max_unc:
+            try:
+                unc_sep_key = (method, calc_type + ' sep mean', 'uncertainty')
+                unc_sep = df.loc[unc_sep_key].values
+                unc = np.maximum(unc, unc_sep)
+            except KeyError:
+                print('key error for', unc_sep_key)
         bars.append(ax.bar(
             ind + bar_centres[i], values, bar_width,
             yerr=unc, color=colors[i]))
