@@ -14,25 +14,8 @@ import bsr.priors
 import bsr.results_utils
 
 
-# df makers
-# ---------
-
-
-@nestcheck.io_utils.save_load_result
-def get_method_df(meth_data, **kwargs):
-    """Results for a given method."""
-    df = get_bayes_df(meth_data['run_list'], meth_data['run_list_sep'],
-                      **kwargs)
-    df['nsample'] = np.full(df.shape[0], np.nan)
-    df['nlike'] = np.full(df.shape[0], np.nan)
-    df.loc[('combined', 'value'), 'nsample'] = sum(
-        [run['logl'].shape[0] for run in meth_data['run_list']])
-    try:
-        df.loc[('combined', 'value'), 'nlike'] = sum(
-            [run['output']['nlike'] for run in meth_data['run_list']])
-    except KeyError:
-        pass
-    return df
+# Final output inc efficiency gains
+# ---------------------------------
 
 
 def get_results_df(results_dict, **kwargs):
@@ -82,38 +65,93 @@ def get_results_df(results_dict, **kwargs):
             print('not adding gains as no single vanilla method',
                   prob_data.keys())
         df_dict[prob_str] = pd.concat(prob_df_dict)
-    return pd.concat(df_dict)
+    df = pd.concat(df_dict)
+    df.index.names = ['problem key', 'method key', 'calculation type',
+                      'result type']
+    return df
 
 
-def get_bayes_df(run_list, run_list_sep, **kwargs):
-    """Dataframe of Bayes factors."""
+@nestcheck.io_utils.save_load_result
+def get_method_df(meth_data, **kwargs):
+    """Results for a given method."""
     n_simulate = kwargs.pop('n_simulate', 5)  # 10
-    adaptive = kwargs.pop('adaptive')
-    nfunc_list = kwargs.pop('nfunc_list')
+    odds_df = get_odds_df(
+        meth_data['run_list'], meth_data['run_list_sep'],
+        n_simulate=n_simulate, **kwargs)
+    fit_df = get_fit_df(
+        meth_data['run_list'], meth_data['run_list_sep'],
+        likelihood_list=meth_data['likelihood_list'],
+        n_simulate=n_simulate)
+    df = pd.concat([fit_df, odds_df], axis=1)
+    df['nsample'] = np.full(df.shape[0], np.nan)
+    df['nlike'] = np.full(df.shape[0], np.nan)
+    df.loc[('combined', 'value'), 'nsample'] = sum(
+        [run['logl'].shape[0] for run in meth_data['run_list']])
+    try:
+        df.loc[('combined', 'value'), 'nlike'] = sum(
+            [run['output']['nlike'] for run in meth_data['run_list']])
+    except KeyError:
+        pass
+    return df
+
+
+# DataFrame makers
+# ----------------
+
+
+def get_fit_df(run_list, run_list_sep, **kwargs):
+    """DataFrame of mean fits at different x coords."""
+    likelihood_list = kwargs.pop('likelihood_list')
+    n_simulate = kwargs.pop('n_simulate')
+    assert len(run_list) == len(likelihood_list)
+    x1 = np.linspace(0.1, 0.9, 5)
+    if '1d' in likelihood_list[0].function.__name__:
+        x2 = None
+    else:
+        x2 = x1
+    comb_vals, comb_val_resamps, sep_vals, sep_val_resamps = (
+        comb_sep_eval_resamp(
+            run_list, run_list_sep, get_y_mean, n_simulate,
+            likelihood_list=likelihood_list, x1=x1, x2=x2))
+    if x2 is None:
+        col_names = [r'$y({:.1f})$'.format(xi) for xi in x1]
+    else:
+        col_names = [r'$y({:.1f},{:.1f})$'.format(xi, xi) for xi in x1]
+    return get_sep_comb_df(
+        comb_vals, comb_val_resamps, sep_vals, sep_val_resamps,
+        col_names)
+
+
+def get_odds_labels(nfunc, adfam=False):
+    """Labels used for odds in results_df."""
+    if adfam:
+        col_names = [r'$P(T={},N={})$'.format(1, i + 1)
+                     for i in range(nfunc)]
+        col_names += [r'$P(T={},N={})$'.format(2, i + 1)
+                      for i in range(nfunc)]
+        col_names += [r'$P(T=1)$']
+    else:
+        col_names = [r'$P(N={})$'.format(i + 1) for
+                     i in range(nfunc)]
+    return col_names
+
+
+def get_odds_df(run_list, run_list_sep, **kwargs):
+    """Dataframe of Bayes factors."""
+    n_simulate = kwargs.pop('n_simulate')
     adfam = kwargs.pop('adfam')
     inc_log_odds = kwargs.pop('inc_log_odds', False)
-    if kwargs:
-        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     # Get log odds ratios from combined runs
-    log_odds = get_log_odds(run_list, nfunc_list, adaptive=adaptive,
-                            adfam=adfam)
-    log_odds_resamps = get_log_odds_bs_resamp(
-        run_list, nfunc_list, adaptive=adaptive, adfam=adfam,
-        n_simulate=n_simulate)
-    # Get log odds ratios from split runs
-    sep_log_odds = []
-    sep_log_odds_resamps = []
-    for rl in run_list_sep:
-        sep_log_odds.append(get_log_odds(
-            rl, nfunc_list, adaptive=adaptive, adfam=adfam))
-        sep_log_odds_resamps.append(get_log_odds_bs_resamp(
-            rl, nfunc_list, adaptive=adaptive, adfam=adfam,
-            n_simulate=n_simulate))
+    log_odds, log_odds_resamps, sep_log_odds, sep_log_odds_resamps = (
+        comb_sep_eval_resamp(run_list, run_list_sep, get_log_odds,
+                             n_simulate, adfam=adfam, **kwargs))
     # Get info df
-    col_names = [r'$P(N={})$'.format(i + 1) for
-                 i in range(log_odds.shape[0])]
     if adfam:
-        col_names[-1] = r'$P(T={})$'.format(1)
+        assert log_odds.shape[0] % 2 == 1, log_odds.shape[0]
+        nfunc = (log_odds.shape[0] - 1) // 2
+    else:
+        nfunc = log_odds.shape[0]
+    col_names = get_odds_labels(nfunc, adfam=adfam)
     df = get_sep_comb_df(
         np.exp(log_odds),
         np.exp(log_odds_resamps),
@@ -121,16 +159,11 @@ def get_bayes_df(run_list, run_list_sep, **kwargs):
         [np.exp(arr) for arr in sep_log_odds_resamps],
         col_names=col_names)
     if inc_log_odds:
-        col_names = [r'$\log P(N={})$'.format(i + 1) for
-                     i in range(log_odds.shape[0])]
-        if adfam:
-            col_names[-1] = r'$P(T={})$'.format(1)
+        col_names = [name.replace('$P(', r'$\log P(')
+                     for name in col_names]
         log_odds_df = get_sep_comb_df(
-            log_odds,
-            log_odds_resamps,
-            sep_log_odds,
-            sep_log_odds_resamps,
-            col_names)
+            log_odds, log_odds_resamps, sep_log_odds,
+            sep_log_odds_resamps, col_names)
         df = pd.concat([df, log_odds_df], axis=1)
     return df
 
@@ -186,15 +219,54 @@ def get_sep_comb_df(values, bs_resamps, sep_values, sep_bs_resamps,
     df.loc[('sep imp std', 'uncertainty'), df.columns] = imp_std_unc
     df.loc[('sep imp std frac', 'value'), :] = imp_frac
     df.loc[('sep imp std frac', 'uncertainty'), :] = imp_frac_unc
-    return df # .sort_index()
+    return df
 
 
-# Functions acting on run lists
-# -----------------------------
+def comb_sep_eval_resamp(run_list, run_list_sep, function, n_simulate,
+                         **kwargs):
+    """Evaluates function and gets bootstrap resampled values for both the
+    combined run list and the seperate runs."""
+    comb_vals = function(run_list, **kwargs)
+    comb_val_resamps = resamp_func(function, run_list, n_simulate, **kwargs)
+    sep_vals = []
+    sep_val_resamps = []
+    for rl in run_list_sep:
+        sep_vals.append(function(rl, **kwargs))
+        sep_val_resamps.append(resamp_func(function, rl, n_simulate, **kwargs))
+    return comb_vals, comb_val_resamps, sep_vals, sep_val_resamps
 
 
-def get_y_mean(run_list, likelihood_list, x1, x2=None):
+def resamp_func(function, run_list, n_simulate, **kwargs):
+    """BS resamples of get_log_odds."""
+    # NB thread list must be in same order as run list, so can't use parallel
+    # apply
+    threads_list_list = [nestcheck.ns_run_utils.get_run_threads(run)
+                         for run in run_list]
+    out_list = nestcheck.parallel_utils.parallel_apply(
+        resamp_helper, list(range(n_simulate)),
+        func_args=(function, threads_list_list), func_kwargs=kwargs,
+        tqdm_kwargs={'disable': True})
+    return np.vstack(out_list)
+
+
+def resamp_helper(_, function, threads_list_list, **kwargs):
+    """Helper for parallelising."""
+    run_list_temp = [nestcheck.error_analysis.bootstrap_resample_run(
+        {}, threads) for threads in threads_list_list]
+    return function(run_list_temp, **kwargs)
+
+
+# Functions to evaluate on run lists
+# ----------------------------------
+
+
+def get_y_mean(run_list, **kwargs):
     """Evaluate mean output y at coordinates x1,x2."""
+    likelihood_list = kwargs.pop('likelihood_list')
+    x1 = kwargs.pop('x1')
+    x2 = kwargs.pop('x2')
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     assert len(run_list) == len(likelihood_list)
     if len(run_list) == 1:
         factors = [1]
@@ -211,8 +283,9 @@ def get_y_mean(run_list, likelihood_list, x1, x2=None):
     return y_mean
 
 
-def get_log_odds(run_list, nfunc_list, **kwargs):
+def get_log_odds(run_list, **kwargs):
     """Returns array of log odds ratios"""
+    nfunc_list = kwargs.pop('nfunc_list')
     adfam = kwargs.pop('adfam', False)
     adaptive = kwargs.pop('adaptive', len(run_list) == 1)
     if kwargs:
@@ -236,6 +309,11 @@ def get_log_odds(run_list, nfunc_list, **kwargs):
     # Calculate values
     logzs_list = [nestcheck.ns_run_utils.run_estimators(run, funcs)
                   for run in run_list]
+    if adfam and not adaptive:
+        # add sum of all N with T=1
+        assert len(logzs_list) % 2 == 0, len(logzs_list)
+        logzs_list.append(np.asarray([scipy.special.logsumexp(
+            logzs_list[:len(logzs_list) // 2])]))
     log_odds = np.concatenate(logzs_list)
     if not adfam:
         log_odds -= scipy.special.logsumexp(log_odds)
@@ -248,26 +326,6 @@ def get_log_odds(run_list, nfunc_list, **kwargs):
         prob_sum = np.exp(scipy.special.logsumexp(log_odds[:-1]))
     assert np.isclose(prob_sum, 1), prob_sum
     return log_odds
-
-
-def get_log_odds_bs_resamp(run_list, nfunc_list, n_simulate=10, **kwargs):
-    """BS resamples of get_log_odds."""
-    # NB thread list must be in same order as run list, so can't use parallel
-    # apply
-    threads_list = [nestcheck.ns_run_utils.get_run_threads(run) for run in
-                    run_list]
-    out_list = nestcheck.parallel_utils.parallel_apply(
-        log_odds_bs_resamp_helper, list(range(n_simulate)),
-        func_args=(threads_list, nfunc_list), func_kwargs=kwargs,
-        tqdm_kwargs={'disable': True})
-    return np.vstack(out_list)
-
-
-def log_odds_bs_resamp_helper(_, threads_list, nfunc_list, **kwargs):
-    """Helper for parallelising."""
-    run_list_temp = [nestcheck.error_analysis.bootstrap_resample_run(
-        {}, threads) for threads in threads_list]
-    return get_log_odds(run_list_temp, nfunc_list, **kwargs)
 
 
 # Functions acting on runs

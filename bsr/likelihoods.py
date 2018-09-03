@@ -213,7 +213,11 @@ class FittingLikelihood(object):
                          theta.shape[0], w_rel_sum)), UserWarning)
                 return np.zeros(x1.shape)
             ys = np.apply_along_axis(self.fit, 1, theta[inds, :], x1, x2)
-            ys *= w_rel[inds][:, np.newaxis, np.newaxis]
+            if ys.ndim == 3:
+                ys *= w_rel[inds][:, np.newaxis, np.newaxis]
+            else:
+                assert ys.ndim == 2, ys.ndim
+                ys *= w_rel[inds][:, np.newaxis]
             return np.sum(ys, axis=0) / np.sum(w_rel[inds])
         else:
             ys = np.apply_along_axis(self.fit, 1, theta, x1, x2)

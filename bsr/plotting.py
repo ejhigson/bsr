@@ -32,9 +32,8 @@ def plot_bars(df, **kwargs):
     colors = kwargs.pop('colors', ['lightgrey', 'grey', 'black', 'darkblue',
                                    'darkred'])
     nn_xlabel = kwargs.pop('nn_xlabel', False)
-    calc_type = kwargs.pop('calc_type')
     max_unc = kwargs.pop('max_unc', True)
-    log_ratios = kwargs.pop('log_ratios', 'log' in calc_type)
+    log_ratios = kwargs.pop('log_ratios', False)
     if log_ratios:
         default_title = 'log posterior odds ratios'
     else:
@@ -57,13 +56,13 @@ def plot_bars(df, **kwargs):
     for i, method in enumerate(method_list):
         labels.append(bsr.results_utils.label_given_method_str(method))
         # plot bar
-        values = df.loc[(method, calc_type, 'value')].values
+        values = df.loc[(method, 'combined', 'value')].values
         if log_ratios:
             values -= values.max()
-        unc = df.loc[(method, calc_type, 'uncertainty')].values
+        unc = df.loc[(method, 'combined', 'uncertainty')].values
         if max_unc:
             try:
-                unc_sep_key = (method, calc_type + ' sep mean', 'uncertainty')
+                unc_sep_key = (method, 'sep mean', 'uncertainty')
                 unc_sep = df.loc[unc_sep_key].values
                 unc = np.maximum(unc, unc_sep)
             except KeyError:
@@ -76,8 +75,6 @@ def plot_bars(df, **kwargs):
     ax.set_xticks(ind)
     if adfam:
         assert len(df.columns) % 2 == 0, len(df.columns)
-        assert list(df.columns) == list(range(1, len(df.columns) + 1)), (
-            df.columns)
         n_per_fam = len(df.columns) // 2
         xlabels = []
         for t in [1, 2]:
@@ -91,7 +88,7 @@ def plot_bars(df, **kwargs):
             ax.set_xlabel('nodes per hidden layer $N$')
         else:
             ax.set_xlabel('number of basis functions $N$')
-        ax.set_xticklabels(['${}$'.format(nf) for nf in df.columns])
+        ax.set_xticklabels(['${}$'.format(nf) for nf in range(df.shape[1])])
     if log_ratios:
         ax.set_ylim([ymin, 0])
         if ymin == -10:
@@ -200,7 +197,8 @@ def plot_2d_runs(likelihood_list, run_list, **kwargs):
         y_list.append(data['y'])
     if combine:
         y_list.append(bsr.results_tables.get_y_mean(
-            run_list, likelihood_list, data['x1'], x2=data['x2']))
+            run_list, likelihood_list=likelihood_list,
+            x1=data['x1'], x2=data['x2']))
     else:
         if len(run_list) == 1 and likelihood_list[0].adaptive:
             run = run_list[0]
