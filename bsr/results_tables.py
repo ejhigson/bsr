@@ -74,7 +74,7 @@ def get_results_df(results_dict, **kwargs):
 @nestcheck.io_utils.save_load_result
 def get_method_df(meth_data, **kwargs):
     """Results for a given method."""
-    n_simulate = kwargs.pop('n_simulate', 5)  # 10
+    n_simulate = kwargs.pop('n_simulate')
     odds_df = get_odds_df(
         meth_data['run_list'], meth_data['run_list_sep'],
         n_simulate=n_simulate, **kwargs)
