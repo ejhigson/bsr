@@ -14,6 +14,24 @@ import bsr.priors
 import bsr.results_utils
 
 
+def get_y_mean(run_list, likelihood_list, x1, x2=None):
+    """Evaluate mean output y at coordinates x1,x2."""
+    assert len(run_list) == len(likelihood_list)
+    if len(run_list) == 1:
+        factors = [1]
+    else:
+        logzs = np.asarray([nestcheck.estimators.logz(run) for run in
+                            run_list])
+        factors = np.exp(logzs - logzs.max())
+        factors /= np.sum(factors)
+    y_mean = np.zeros(x1.shape)
+    for i, run in enumerate(run_list):
+        w_rel = nestcheck.ns_run_utils.get_w_rel(run)
+        y_mean += factors[i] * likelihood_list[i].fit_mean(
+            run['theta'], x1, x2, w_rel=w_rel)
+    return y_mean
+
+
 def adaptive_logz(run, logw=None, nfunc=1, adfam_t=None):
     """Get the logz assigned to nfunc basis functions from an adaptive run.
     Note that the absolute value does not correspond to that from a similar

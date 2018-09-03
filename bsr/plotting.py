@@ -199,16 +199,8 @@ def plot_2d_runs(likelihood_list, run_list, **kwargs):
         y_list.append(data['y_no_noise'])
         y_list.append(data['y'])
     if combine:
-        logzs = np.asarray([nestcheck.estimators.logz(run) for run in
-                            run_list])
-        factors = np.exp(logzs - logzs.max())
-        factors /= np.sum(factors)
-        y_mean = np.zeros(data['x1'].shape)
-        for i, run in enumerate(run_list):
-            w_rel = nestcheck.ns_run_utils.get_w_rel(run)
-            y_mean += factors[i] * likelihood_list[i].fit_mean(
-                run['theta'], data['x1'], data['x2'], w_rel=w_rel)
-        y_list.append(y_mean)
+        y_list.append(bsr.results_tables.get_y_mean(
+            run_list, likelihood_list, data['x1'], x2=data['x2']))
     else:
         if len(run_list) == 1 and likelihood_list[0].adaptive:
             run = run_list[0]
