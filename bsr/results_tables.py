@@ -51,16 +51,28 @@ def get_log_odds(run_list, nfunc_list, **kwargs):
                      for nf in nfunc_list]
             funcs += [functools.partial(adaptive_logz, nfunc=nf, adfam_t=2)
                       for nf in nfunc_list]
+            # Get family prob using adaptive_logz=1 func, as T is stored in the
+            # first column
+            funcs.append(functools.partial(adaptive_logz, nfunc=1))
         else:
             funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in
                      nfunc_list]
     else:
         funcs = [nestcheck.estimators.logz]
     # Calculate values
-    logzs = [nestcheck.ns_run_utils.run_estimators(run, funcs) for run in
-             run_list]
-    logzs = np.concatenate(logzs)
-    log_odds = logzs - scipy.special.logsumexp(logzs)
+    logzs_list = [nestcheck.ns_run_utils.run_estimators(run, funcs)
+                  for run in run_list]
+    log_odds = np.concatenate(logzs_list)
+    if not adfam:
+        log_odds -= scipy.special.logsumexp(log_odds)
+        # check the probabilities approximately sum to 1
+        prob_sum = np.exp(scipy.special.logsumexp(log_odds))
+    else:
+        # Dont include final element in sum as this is the total for all N,T
+        # combos with T=1, so it will lead to double counting
+        log_odds -= scipy.special.logsumexp(log_odds[:-1])
+        prob_sum = np.exp(scipy.special.logsumexp(log_odds[:-1]))
+    assert np.isclose(prob_sum, 1), prob_sum
     return log_odds
 
 
@@ -111,6 +123,8 @@ def get_bayes_df(run_list, run_list_sep, **kwargs):
     # Get info df
     col_names = [r'$P(N={})$'.format(i + 1) for
                  i in range(log_odds.shape[0])]
+    if adfam:
+        col_names[-1] = r'$P(T={})$'.format(1)
     df = get_sep_comb_df(
         np.exp(log_odds),
         np.exp(log_odds_resamps),
@@ -120,6 +134,8 @@ def get_bayes_df(run_list, run_list_sep, **kwargs):
     if inc_log_odds:
         col_names = [r'$\log P(N={})$'.format(i + 1) for
                      i in range(log_odds.shape[0])]
+        if adfam:
+            col_names[-1] = r'$P(T={})$'.format(1)
         log_odds_df = get_sep_comb_df(
             log_odds,
             log_odds_resamps,
@@ -218,6 +234,7 @@ def get_results_df(results_dict, **kwargs):
                 meth_data, adaptive=meth_key[0], save_name=save_name,
                 n_simulate=n_simulate, nfunc_list=nfunc_list,
                 adfam=adfam, **kwargs)
+        # Add efficiency gains
         vanilla_keys = [key for key in prob_data.keys() if not key[0]]
         if len(vanilla_keys) == 1:
             van_str = bsr.results_utils.root_given_key(vanilla_keys[0])
