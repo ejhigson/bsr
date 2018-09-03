@@ -14,104 +14,75 @@ import bsr.priors
 import bsr.results_utils
 
 
-def get_y_mean(run_list, likelihood_list, x1, x2=None):
-    """Evaluate mean output y at coordinates x1,x2."""
-    assert len(run_list) == len(likelihood_list)
-    if len(run_list) == 1:
-        factors = [1]
-    else:
-        logzs = np.asarray([nestcheck.estimators.logz(run) for run in
-                            run_list])
-        factors = np.exp(logzs - logzs.max())
-        factors /= np.sum(factors)
-    y_mean = np.zeros(x1.shape)
-    for i, run in enumerate(run_list):
-        w_rel = nestcheck.ns_run_utils.get_w_rel(run)
-        y_mean += factors[i] * likelihood_list[i].fit_mean(
-            run['theta'], x1, x2, w_rel=w_rel)
-    return y_mean
+# df makers
+# ---------
 
 
-def adaptive_logz(run, logw=None, nfunc=1, adfam_t=None):
-    """Get the logz assigned to nfunc basis functions from an adaptive run.
-    Note that the absolute value does not correspond to that from a similar
-    vanilla run, but the relative value can be used when calculating Bayes
-    factors."""
-    if logw is None:
-        logw = nestcheck.ns_run_utils.get_logw(run)
-    if isinstance(nfunc, list):
-        nfunc = nfunc[-1]
-    points = logw[select_adaptive_inds(run['theta'], nfunc, nfam=adfam_t)]
-    if points.shape == (0,):
-        return -np.inf
-    else:
-        return scipy.special.logsumexp(points)
+@nestcheck.io_utils.save_load_result
+def get_method_df(meth_data, **kwargs):
+    """Results for a given method."""
+    df = get_bayes_df(meth_data['run_list'], meth_data['run_list_sep'],
+                      **kwargs)
+    df['nsample'] = np.full(df.shape[0], np.nan)
+    df['nlike'] = np.full(df.shape[0], np.nan)
+    df.loc[('combined', 'value'), 'nsample'] = sum(
+        [run['logl'].shape[0] for run in meth_data['run_list']])
+    try:
+        df.loc[('combined', 'value'), 'nlike'] = sum(
+            [run['output']['nlike'] for run in meth_data['run_list']])
+    except KeyError:
+        pass
+    return df
 
-def adaptive_prob(run, logw=None, **kwargs):
-    """Convenience wrapper for computing adaptive Z as fraction of the total
-    Z."""
-    if logw is None:
-        logw = nestcheck.ns_run_utils.get_logw(run)
-    ad_logz = adaptive_logz(run, logw=logw, **kwargs)
-    return np.exp(ad_logz - scipy.special.logsumexp(logw))
 
-def get_log_odds(run_list, nfunc_list, **kwargs):
-    """Returns array of log odds ratios"""
-    adfam = kwargs.pop('adfam', False)
-    adaptive = kwargs.pop('adaptive', len(run_list) == 1)
-    if kwargs:
-        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
-    # Get funcs
-    if adaptive:
-        assert len(run_list) == 1, len(run_list)
-        if adfam:
-            funcs = [functools.partial(adaptive_logz, nfunc=nf, adfam_t=1)
-                     for nf in nfunc_list]
-            funcs += [functools.partial(adaptive_logz, nfunc=nf, adfam_t=2)
-                      for nf in nfunc_list]
-            # Get family prob using adaptive_logz=1 func, as T is stored in the
-            # first column
-            funcs.append(functools.partial(adaptive_logz, nfunc=1))
+def get_results_df(results_dict, **kwargs):
+    """get results dataframe."""
+    n_simulate = kwargs.pop('n_simulate', 10)
+    df_dict = {}
+    for prob_key, prob_data in results_dict.items():
+        adfam = prob_key[0] in ['adfam_gg_ta_1d', 'nn_adl']
+        nfunc_list = bsr.results_utils.nfunc_list_union(prob_data)
+        if any(isinstance(nf, list) for nf in nfunc_list):
+            assert all(isinstance(nf, list) for nf in nfunc_list), nfunc_list
+            nfunc_list = [nf[-1] for nf in nfunc_list]
+        prob_str = bsr.results_utils.root_given_key(prob_key)
+        prob_df_dict = {}
+        for meth_key, meth_data in prob_data.items():
+            meth_str = bsr.results_utils.root_given_key(meth_key)
+            save_name = 'cache/results_df_{}_{}_{}sim'.format(
+                prob_str, meth_str, n_simulate)
+            prob_df_dict[meth_str] = get_method_df(
+                meth_data, adaptive=meth_key[0], save_name=save_name,
+                n_simulate=n_simulate, nfunc_list=nfunc_list,
+                adfam=adfam, **kwargs)
+        # Add efficiency gains
+        vanilla_keys = [key for key in prob_data.keys() if not key[0]]
+        if len(vanilla_keys) == 1:
+            van_str = bsr.results_utils.root_given_key(vanilla_keys[0])
+            van_nsamp = prob_df_dict[van_str]['nsample'].loc[
+                ('combined', 'value')]
+            for measure in ['bs std', 'sep std']:
+                van_val = prob_df_dict[van_str].loc[(measure, 'value')]
+                van_unc = prob_df_dict[van_str].loc[(measure, 'uncertainty')]
+                gain_type = measure.replace('std', 'gain')
+                for meth_str in prob_df_dict:
+                    meth_nsamp = prob_df_dict[meth_str]['nsample'].loc[
+                        ('combined', 'value')]
+                    meth_val = prob_df_dict[meth_str].loc[(measure, 'value')]
+                    meth_unc = prob_df_dict[meth_str].loc[
+                        (measure, 'uncertainty')]
+                    nsamp_ratio = van_nsamp / meth_nsamp
+                    gain, gain_unc = nestcheck.pandas_functions.get_eff_gain(
+                        van_val, van_unc, meth_val, meth_unc,
+                        adjust=nsamp_ratio)
+                    prob_df_dict[meth_str].loc[(gain_type, 'value'), :] = gain
+                    prob_df_dict[meth_str].loc[
+                        (gain_type, 'uncertainty'), :] = gain_unc
         else:
-            funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in
-                     nfunc_list]
-    else:
-        funcs = [nestcheck.estimators.logz]
-    # Calculate values
-    logzs_list = [nestcheck.ns_run_utils.run_estimators(run, funcs)
-                  for run in run_list]
-    log_odds = np.concatenate(logzs_list)
-    if not adfam:
-        log_odds -= scipy.special.logsumexp(log_odds)
-        # check the probabilities approximately sum to 1
-        prob_sum = np.exp(scipy.special.logsumexp(log_odds))
-    else:
-        # Dont include final element in sum as this is the total for all N,T
-        # combos with T=1, so it will lead to double counting
-        log_odds -= scipy.special.logsumexp(log_odds[:-1])
-        prob_sum = np.exp(scipy.special.logsumexp(log_odds[:-1]))
-    assert np.isclose(prob_sum, 1), prob_sum
-    return log_odds
-
-
-def get_log_odds_bs_resamp(run_list, nfunc_list, n_simulate=10, **kwargs):
-    """BS resamples of get_log_odds."""
-    # NB thread list must be in same order as run list, so can't use parallel
-    # apply
-    threads_list = [nestcheck.ns_run_utils.get_run_threads(run) for run in
-                    run_list]
-    out_list = nestcheck.parallel_utils.parallel_apply(
-        log_odds_bs_resamp_helper, list(range(n_simulate)),
-        func_args=(threads_list, nfunc_list), func_kwargs=kwargs,
-        tqdm_kwargs={'disable': True})
-    return np.vstack(out_list)
-
-
-def log_odds_bs_resamp_helper(_, threads_list, nfunc_list, **kwargs):
-    """Helper for parallelising."""
-    run_list_temp = [nestcheck.error_analysis.bootstrap_resample_run(
-        {}, threads) for threads in threads_list]
-    return get_log_odds(run_list_temp, nfunc_list, **kwargs)
+            print('not adding gains as no single vanilla method',
+                  prob_data.keys())
+        df_dict[prob_str] = pd.concat(prob_df_dict)
+    return pd.concat(df_dict)
 
 
 def get_bayes_df(run_list, run_list_sep, **kwargs):
@@ -218,6 +189,116 @@ def get_sep_comb_df(values, bs_resamps, sep_values, sep_bs_resamps,
     return df # .sort_index()
 
 
+# Functions acting on run lists
+# -----------------------------
+
+
+def get_y_mean(run_list, likelihood_list, x1, x2=None):
+    """Evaluate mean output y at coordinates x1,x2."""
+    assert len(run_list) == len(likelihood_list)
+    if len(run_list) == 1:
+        factors = [1]
+    else:
+        logzs = np.asarray([nestcheck.estimators.logz(run) for run in
+                            run_list])
+        factors = np.exp(logzs - logzs.max())
+        factors /= np.sum(factors)
+    y_mean = np.zeros(x1.shape)
+    for i, run in enumerate(run_list):
+        w_rel = nestcheck.ns_run_utils.get_w_rel(run)
+        y_mean += factors[i] * likelihood_list[i].fit_mean(
+            run['theta'], x1, x2, w_rel=w_rel)
+    return y_mean
+
+
+def get_log_odds(run_list, nfunc_list, **kwargs):
+    """Returns array of log odds ratios"""
+    adfam = kwargs.pop('adfam', False)
+    adaptive = kwargs.pop('adaptive', len(run_list) == 1)
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    # Get funcs
+    if adaptive:
+        assert len(run_list) == 1, len(run_list)
+        if adfam:
+            funcs = [functools.partial(adaptive_logz, nfunc=nf, adfam_t=1)
+                     for nf in nfunc_list]
+            funcs += [functools.partial(adaptive_logz, nfunc=nf, adfam_t=2)
+                      for nf in nfunc_list]
+            # Get family prob using adaptive_logz=1 func, as T is stored in the
+            # first column
+            funcs.append(functools.partial(adaptive_logz, nfunc=1))
+        else:
+            funcs = [functools.partial(adaptive_logz, nfunc=nf) for nf in
+                     nfunc_list]
+    else:
+        funcs = [nestcheck.estimators.logz]
+    # Calculate values
+    logzs_list = [nestcheck.ns_run_utils.run_estimators(run, funcs)
+                  for run in run_list]
+    log_odds = np.concatenate(logzs_list)
+    if not adfam:
+        log_odds -= scipy.special.logsumexp(log_odds)
+        # check the probabilities approximately sum to 1
+        prob_sum = np.exp(scipy.special.logsumexp(log_odds))
+    else:
+        # Dont include final element in sum as this is the total for all N,T
+        # combos with T=1, so it will lead to double counting
+        log_odds -= scipy.special.logsumexp(log_odds[:-1])
+        prob_sum = np.exp(scipy.special.logsumexp(log_odds[:-1]))
+    assert np.isclose(prob_sum, 1), prob_sum
+    return log_odds
+
+
+def get_log_odds_bs_resamp(run_list, nfunc_list, n_simulate=10, **kwargs):
+    """BS resamples of get_log_odds."""
+    # NB thread list must be in same order as run list, so can't use parallel
+    # apply
+    threads_list = [nestcheck.ns_run_utils.get_run_threads(run) for run in
+                    run_list]
+    out_list = nestcheck.parallel_utils.parallel_apply(
+        log_odds_bs_resamp_helper, list(range(n_simulate)),
+        func_args=(threads_list, nfunc_list), func_kwargs=kwargs,
+        tqdm_kwargs={'disable': True})
+    return np.vstack(out_list)
+
+
+def log_odds_bs_resamp_helper(_, threads_list, nfunc_list, **kwargs):
+    """Helper for parallelising."""
+    run_list_temp = [nestcheck.error_analysis.bootstrap_resample_run(
+        {}, threads) for threads in threads_list]
+    return get_log_odds(run_list_temp, nfunc_list, **kwargs)
+
+
+# Functions acting on runs
+# ------------------------
+
+
+def adaptive_logz(run, logw=None, nfunc=1, adfam_t=None):
+    """Get the logz assigned to nfunc basis functions from an adaptive run.
+    Note that the absolute value does not correspond to that from a similar
+    vanilla run, but the relative value can be used when calculating Bayes
+    factors."""
+    if logw is None:
+        logw = nestcheck.ns_run_utils.get_logw(run)
+    if isinstance(nfunc, list):
+        nfunc = nfunc[-1]
+    points = logw[select_adaptive_inds(run['theta'], nfunc, nfam=adfam_t)]
+    if points.shape == (0,):
+        return -np.inf
+    else:
+        return scipy.special.logsumexp(points)
+
+
+def adaptive_prob(run, logw=None, **kwargs):
+    """Convenience wrapper for computing adaptive Z as fraction of the total
+    Z."""
+    if logw is None:
+        logw = nestcheck.ns_run_utils.get_logw(run)
+    ad_logz = adaptive_logz(run, logw=logw, **kwargs)
+    return np.exp(ad_logz - scipy.special.logsumexp(logw))
+
+
 def select_adaptive_inds(theta, nfunc, nfam=None):
     """Returns boolian mask of theta components which have the input N (and
     optionally also T) values.
@@ -230,70 +311,3 @@ def select_adaptive_inds(theta, nfunc, nfam=None):
         samp_nfunc = np.round(theta[:, 1]).astype(int)
         return np.logical_and((samp_nfunc == nfunc),
                               (samp_nfam == nfam))
-
-
-def get_results_df(results_dict, **kwargs):
-    """get results dataframe."""
-    n_simulate = kwargs.pop('n_simulate', 10)
-    df_dict = {}
-    for prob_key, prob_data in results_dict.items():
-        adfam = prob_key[0] in ['adfam_gg_ta_1d', 'nn_adl']
-        nfunc_list = bsr.results_utils.nfunc_list_union(prob_data)
-        if any(isinstance(nf, list) for nf in nfunc_list):
-            assert all(isinstance(nf, list) for nf in nfunc_list), nfunc_list
-            nfunc_list = [nf[-1] for nf in nfunc_list]
-        prob_str = bsr.results_utils.root_given_key(prob_key)
-        prob_df_dict = {}
-        for meth_key, meth_data in prob_data.items():
-            meth_str = bsr.results_utils.root_given_key(meth_key)
-            save_name = 'cache/results_df_{}_{}_{}sim'.format(
-                prob_str, meth_str, n_simulate)
-            prob_df_dict[meth_str] = get_method_df(
-                meth_data, adaptive=meth_key[0], save_name=save_name,
-                n_simulate=n_simulate, nfunc_list=nfunc_list,
-                adfam=adfam, **kwargs)
-        # Add efficiency gains
-        vanilla_keys = [key for key in prob_data.keys() if not key[0]]
-        if len(vanilla_keys) == 1:
-            van_str = bsr.results_utils.root_given_key(vanilla_keys[0])
-            van_nsamp = prob_df_dict[van_str]['nsample'].loc[
-                ('combined', 'value')]
-            for measure in ['bs std', 'sep std']:
-                van_val = prob_df_dict[van_str].loc[(measure, 'value')]
-                van_unc = prob_df_dict[van_str].loc[(measure, 'uncertainty')]
-                gain_type = measure.replace('std', 'gain')
-                for meth_str in prob_df_dict:
-                    meth_nsamp = prob_df_dict[meth_str]['nsample'].loc[
-                        ('combined', 'value')]
-                    meth_val = prob_df_dict[meth_str].loc[(measure, 'value')]
-                    meth_unc = prob_df_dict[meth_str].loc[
-                        (measure, 'uncertainty')]
-                    nsamp_ratio = van_nsamp / meth_nsamp
-                    gain, gain_unc = nestcheck.pandas_functions.get_eff_gain(
-                        van_val, van_unc, meth_val, meth_unc,
-                        adjust=nsamp_ratio)
-                    prob_df_dict[meth_str].loc[(gain_type, 'value'), :] = gain
-                    prob_df_dict[meth_str].loc[
-                        (gain_type, 'uncertainty'), :] = gain_unc
-        else:
-            print('not adding gains as no single vanilla method',
-                  prob_data.keys())
-        df_dict[prob_str] = pd.concat(prob_df_dict)
-    return pd.concat(df_dict)
-
-
-@nestcheck.io_utils.save_load_result
-def get_method_df(meth_data, **kwargs):
-    """Results for a given method."""
-    df = get_bayes_df(meth_data['run_list'], meth_data['run_list_sep'],
-                      **kwargs)
-    df['nsample'] = np.full(df.shape[0], np.nan)
-    df['nlike'] = np.full(df.shape[0], np.nan)
-    df.loc[('combined', 'value'), 'nsample'] = sum(
-        [run['logl'].shape[0] for run in meth_data['run_list']])
-    try:
-        df.loc[('combined', 'value'), 'nlike'] = sum(
-            [run['output']['nlike'] for run in meth_data['run_list']])
-    except KeyError:
-        pass
-    return df
