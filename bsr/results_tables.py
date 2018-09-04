@@ -75,14 +75,19 @@ def get_results_df(results_dict, **kwargs):
 def get_method_df(meth_data, **kwargs):
     """Results for a given method."""
     n_simulate = kwargs.pop('n_simulate')
-    odds_df = get_odds_df(
+    df_list = []
+    adaptive = kwargs.get('adaptive', False)
+    df_list.append(get_agivenn_df(
         meth_data['run_list'], meth_data['run_list_sep'],
-        n_simulate=n_simulate, **kwargs)
-    fit_df = get_fit_df(
+        n_simulate=n_simulate, adaptive=adaptive))
+    df_list.append(get_odds_df(
+        meth_data['run_list'], meth_data['run_list_sep'],
+        n_simulate=n_simulate, **kwargs))
+    df_list.append(get_fit_df(
         meth_data['run_list'], meth_data['run_list_sep'],
         likelihood_list=meth_data['likelihood_list'],
-        n_simulate=n_simulate)
-    df = pd.concat([fit_df, odds_df], axis=1)
+        n_simulate=n_simulate))
+    df = pd.concat(df_list, axis=1)
     df['nsample'] = np.full(df.shape[0], np.nan)
     df['nlike'] = np.full(df.shape[0], np.nan)
     df.loc[('combined', 'value'), 'nsample'] = sum(
@@ -97,6 +102,22 @@ def get_method_df(meth_data, **kwargs):
 
 # DataFrame makers
 # ----------------
+
+
+def get_agivenn_df(run_list, run_list_sep, **kwargs):
+    """DF of mean amplitudes conditiontioned  on differnet n values."""
+    n_simulate = kwargs.pop('n_simulate')
+    adfam_t = kwargs.pop('adfam_t', None)
+    adaptive = kwargs.pop('adaptive')
+    n_list = kwargs.pop('n_list', [1, 2, 3])
+    comb_vals, comb_val_resamps, sep_vals, sep_val_resamps = (
+        comb_sep_eval_resamp(
+            run_list, run_list_sep, get_a_n_mean_given_n, n_simulate,
+            adaptive=adaptive, n_list=n_list, adfam_t=adfam_t))
+    col_names = [r'$\mathrm{{E}}[a_{}|N={}]$'.format(n, n) for n in n_list]
+    return get_sep_comb_df(
+        comb_vals, comb_val_resamps, sep_vals, sep_val_resamps,
+        col_names)
 
 
 def get_fit_df(run_list, run_list_sep, **kwargs):
@@ -180,7 +201,8 @@ def get_sep_comb_df(values, bs_resamps, sep_values, sep_bs_resamps,
     sep_bs_resamps: list of 2d numpy arrays
     """
     # Check shapes
-    assert values.shape[0] == bs_resamps.shape[1]
+    assert values.shape[0] == bs_resamps.shape[1], '{} != {}'.format(
+        values.shape[0], bs_resamps.shape[1])
     assert len(sep_values) == len(sep_bs_resamps)
     assert len(set([ar.shape for ar in sep_values])) == 1
     assert len(set([ar.shape for ar in sep_bs_resamps])) == 1
@@ -195,7 +217,7 @@ def get_sep_comb_df(values, bs_resamps, sep_values, sep_bs_resamps,
     df.loc[('combined', 'uncertainty'), :] = df.loc[('std', 'value'), :]
     df.loc[('bs std', 'value'), :] = df.loc[('std', 'value'), :]
     df.loc[('bs std', 'uncertainty'), :] = df.loc[('std', 'uncertainty'), :]
-    df = df.iloc[-4:]
+    df = df.loc[pd.IndexSlice[['combined', 'bs std'], :], :]
     # Add seperate values
     sep_df = nestcheck.pandas_functions.summary_df_from_list(
         sep_values, col_names)
@@ -258,6 +280,33 @@ def resamp_helper(_, function, threads_list_list, **kwargs):
 
 # Functions to evaluate on run lists
 # ----------------------------------
+
+
+def get_a_n_mean_given_n(run_list, **kwargs):
+    adaptive = kwargs.pop('adaptive', len(run_list) == 1)
+    n_list = kwargs.pop('n_list')
+    adfam_t = kwargs.pop('adfam_t', None)
+    if kwargs:
+        raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
+    ans_list = []
+    for n in n_list:
+        if not adaptive:
+            ans_list.append(nestcheck.estimators.param_mean(
+                run_list[n - 1], param_ind=(n - 1)))
+        else:
+            assert len(run_list) == 1, len(run_list)
+            inds = select_adaptive_inds(
+                run_list[0]['theta'], n, nfam=adfam_t)
+            logw = nestcheck.ns_run_utils.get_logw(run_list[0])
+            w_rel = np.exp(logw[inds] - logw[inds].max())
+            param_ind = n  # n - 1 for vanilla, add one for adaptive param
+            if adfam_t is not None:
+                param_ind += 1
+            ans_list.append(
+                np.sum(w_rel * run_list[0]['theta'][inds, param_ind]) /
+                np.sum(w_rel))
+    return np.asarray(ans_list)
+
 
 
 def get_y_mean(run_list, **kwargs):
