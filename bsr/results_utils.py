@@ -30,7 +30,7 @@ def load_data(problem_tups, method_tups, inds, **kwargs):
                     [root + '_' + str(i).zfill(3) for i in inds],
                     parallel=False, parallel_warning=False,
                     tqdm_kwargs={'disable': True}, base_dir=base_dir,
-                    errors_to_handle=(AssertionError, OSError))
+                    errors_to_handle=(OSError,))
                 if sep_runs:
                     run_list_sep.append(batch)
                 try:
