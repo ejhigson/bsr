@@ -122,6 +122,19 @@ def get_data_name(data_func, data_type, npoints, y_error_sigma, x_error_sigma):
     return data_name.replace('.', '_')
 
 
+def get_true_value(data_func, data_type, x1=0.5, x2=None):
+    """Get the noise-free true value for some x coordinate."""
+    if x2 is None:
+        x2 = x1  # Not used if func is 1d
+    data = generate_data(data_func, data_type, 0, x1min=x,
+                         x1max=x, x2min=x, x2max=x, npoints=1)
+    true = data['y_no_noise']
+    if true.ndim == 2:
+        return true[0, 0]
+    else:
+        return true[0]
+
+
 # Set up data
 # -----------
 def get_data_args(data_func, nfuncs):
