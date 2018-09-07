@@ -174,7 +174,7 @@ def get_default_titles(combine, plot_data, nfunc_list, **kwargs):
     else:
         if any([isinstance(nfunc, list) for nfunc in nfunc_list]):
             assert all([isinstance(nfunc, list) for nfunc in nfunc_list])
-            nfunc_to_use = [nf[0]  for nf in nfunc_list]
+            nfunc_to_use = [nf[-1]  for nf in nfunc_list]
         else:
             nfunc_to_use = nfunc_list
         if not adfam:
@@ -182,9 +182,9 @@ def get_default_titles(combine, plot_data, nfunc_list, **kwargs):
                 titles.append('$N={}$'.format(nfunc))
         else:
             for nfunc in nfunc_to_use:
-                titles.append('$T,N=1,{}$'.format(nfunc))
+                titles.append('$T=1,N={}$'.format(nfunc))
             for nfunc in nfunc_to_use:
-                titles.append('$T,N=2,{}$'.format(nfunc))
+                titles.append('$T=2,N={}$'.format(nfunc))
             if adfam_nn:
                 # label adfam param L rather than T
                 titles = [title.replace('T', 'L') for title in titles]
