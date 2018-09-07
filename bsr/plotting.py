@@ -125,6 +125,7 @@ def plot_runs(likelihood_list, run_list, nfunc_list=None, **kwargs):
     """Wrapper for plotting ns runs (automatically tests if they are
     1d or 2d)."""
     adfam = kwargs.get('adfam', False)
+    adfam_nn = kwargs.pop('adfam_nn', False)
     true_signal = kwargs.pop('true_signal', True)
     if not isinstance(likelihood_list, list):
         likelihood_list = [likelihood_list]
@@ -134,9 +135,9 @@ def plot_runs(likelihood_list, run_list, nfunc_list=None, **kwargs):
         len(run_list), len(likelihood_list))
     if 'titles' not in kwargs:
         kwargs['titles'] = get_default_titles(
-            likelihood_list, kwargs.get('plot_data', False),
+            kwargs.get('plot_data', False),
             kwargs.get('combine', True), nfunc_list, adfam=adfam,
-            true_signal=true_signal)
+            true_signal=true_signal, adfam_nn=adfam_nn)
     if len(likelihood_list) >= 1:
         for like in likelihood_list[1:]:
             try:
@@ -154,10 +155,10 @@ def plot_runs(likelihood_list, run_list, nfunc_list=None, **kwargs):
     return fig
 
 
-def get_default_titles(likelihood_list, combine, plot_data,
-                       nfunc_list, **kwargs):
+def get_default_titles(combine, plot_data, nfunc_list, **kwargs):
     """Get some default titles for the plots."""
     adfam = kwargs.pop('adfam', False)
+    adfam_nn = kwargs.pop('adfam_nn', False)
     true_signal = kwargs.pop('true_signal', True)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
@@ -171,18 +172,22 @@ def get_default_titles(likelihood_list, combine, plot_data,
     if combine:
         titles.append('fit')
     else:
-        if adfam:
-            for nfunc in nfunc_list:
-                titles.append('$T,N=1,{}$'.format(nfunc))
-            for nfunc in nfunc_list:
-                titles.append('$T,N=2,{}$'.format(nfunc))
+        if any([isinstance(nfunc, list) for nfunc in nfunc_list]):
+            assert all([isinstance(nfunc, list) for nfunc in nfunc_list])
+            nfunc_to_use = [nf[0]  for nf in nfunc_list]
         else:
-            for nfunc in nfunc_list:
-                if isinstance(nfunc, list):
-                    # Display only the hidden layers' number of nodes
-                    titles.append('$N={}$'.format(nfunc[-1]))
-                else:
-                    titles.append('$N={}$'.format(nfunc))
+            nfunc_to_use = nfunc_list
+        if not adfam:
+            for nfunc in nfunc_to_use:
+                titles.append('$N={}$'.format(nfunc))
+        else:
+            for nfunc in nfunc_to_use:
+                titles.append('$T,N=1,{}$'.format(nfunc))
+            for nfunc in nfunc_to_use:
+                titles.append('$T,N=2,{}$'.format(nfunc))
+            if adfam_nn:
+                # label adfam param L rather than T
+                titles = [title.replace('T', 'L') for title in titles]
     return titles
 
 
