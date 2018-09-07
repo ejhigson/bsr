@@ -297,14 +297,21 @@ def get_a_n_mean_given_n(run_list, **kwargs):
             assert len(run_list) == 1, len(run_list)
             inds = select_adaptive_inds(
                 run_list[0]['theta'], n, nfam=adfam_t)
-            logw = nestcheck.ns_run_utils.get_logw(run_list[0])
-            w_rel = np.exp(logw[inds] - logw[inds].max())
-            param_ind = n  # n - 1 for vanilla, add one for adaptive param
-            if adfam_t is not None:
-                param_ind += 1
-            ans_list.append(
-                np.sum(w_rel * run_list[0]['theta'][inds, param_ind]) /
-                np.sum(w_rel))
+            try:
+                logw = nestcheck.ns_run_utils.get_logw(run_list[0])
+                w_rel = np.exp(logw[inds] - logw[inds].max())
+                param_ind = n  # n - 1 for vanilla, add one for adaptive param
+                if adfam_t is not None:
+                    param_ind += 1
+                ans_list.append(
+                    np.sum(w_rel * run_list[0]['theta'][inds, param_ind]) /
+                    np.sum(w_rel))
+            except ValueError:
+                # Protect against not having any samples
+                if not np.any(inds):
+                    ans_list.append(np.nan)
+                else:
+                    raise
     return np.asarray(ans_list)
 
 
