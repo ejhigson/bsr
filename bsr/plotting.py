@@ -34,14 +34,7 @@ def plot_bars(df, **kwargs):
     nn_xlabel = kwargs.pop('nn_xlabel', False)
     max_unc = kwargs.pop('max_unc', True)
     log_ratios = kwargs.pop('log_ratios', False)
-    if log_ratios:
-        default_title = 'log posterior odds ratios'
-    else:
-        if adfam:
-            default_title = 'posterior distribution of $T,N$'
-        else:
-            default_title = 'posterior distribution of $N$'
-    title = kwargs.pop('title', default_title)
+    exclude_n_le = kwargs.pop('exclude_n_le', 0)
     if kwargs:
         raise TypeError('Unexpected **kwargs: {0}'.format(kwargs))
     # Make the plot
@@ -70,25 +63,29 @@ def plot_bars(df, **kwargs):
         bars.append(ax.bar(
             ind + bar_centres[i], values, bar_width,
             yerr=unc, color=colors[i]))
-    if title is not None:
-        ax.set_title(title)
     ax.set_xticks(ind)
     if adfam:
         assert len(df.columns) % 2 == 0, len(df.columns)
         n_per_fam = len(df.columns) // 2
         xlabels = []
         for t in [1, 2]:
-            for b in range(1, n_per_fam + 1):
+            for b in range(1 + exclude_n_le, n_per_fam + 1 + exclude_n_le):
                 xlabels.append('{},{}'.format(t, b))
         fig.axes[0].set_xticklabels(xlabels)
         fig.axes[0].axvline(x=n_per_fam - 0.5, color='black', linestyle=':')
-        ax.set_xlabel('family and number $T,N$')
+        if nn_xlabel:
+            ax.set_xlabel('hidden layers and nodes per layer $L,N$')
+            ax.set_xlim(-0.5, len(xlabels) - 0.5)
+            print(fig.axes[0].get_xlim())
+        else:
+            ax.set_ylabel('family and number $T,N$')
     else:
         if nn_xlabel:
             ax.set_xlabel('nodes per hidden layer $N$')
         else:
             ax.set_xlabel('number of basis functions $N$')
-        ax.set_xticklabels(['${}$'.format(nf) for nf in range(df.shape[1])])
+        ax.set_xticklabels(['${}$'.format(nf) for nf in
+                            range(1, df.shape[1] + 1)])
     if log_ratios:
         ax.set_ylim([ymin, 0])
         if ymin == -10:
@@ -102,12 +99,15 @@ def plot_bars(df, **kwargs):
             ax.set_ylim([0, ax.get_yticks()[-1]])
         if ax.get_ylim()[1] == 1:
             ax.set_yticks([0, 0.5, 1])
-        if adfam:
+        if adfam and nn_xlabel:
+            var = 'L,N'
+        elif adfam and not nn_xlabel:
             var = 'T,N'
         else:
             var = 'N'
         # add y label
         ax.set_ylabel(r'$P({}|\mathcal{{L}},\pi)$'.format(var))
+        ax.set_title(r'posterior distribution of ${}$'.format(var))
     shrink = 0.6
     labels = [lab.replace('dynamic adaptive', 'dyn. adap.') for lab in labels]
     ax.legend(
