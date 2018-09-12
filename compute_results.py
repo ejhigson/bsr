@@ -48,11 +48,13 @@ def main():  # pylint: disable=too-many-locals,too-many-branches,too-many-statem
         $ make polychord_CC_ini
 
     This creates an executable at PolyChord/bin/polychord_CC_ini. The ex_path
-    variable must be updated to point to this. Parallelsiation in the compiled
-    case is performed through the mpi_str argument, and compute_results.py
-    (this module) should not be executed with an mpirun command. In contrast
-    Python likelihoods are run with parallelisation using an mpirun command on
-    this module; for example
+    variable must be updated to point to this. For more details see the
+    PolyChord and dyPolyChord documentation.
+
+    Parallelisation for compiled C++ likelihoods is performed through the
+    mpi_str argument, and compute_results.py (this module) should not be
+    executed with an mpirun command. In contrast Python likelihoods are run
+    with parallelisation using an mpirun command on this module; for example
 
         $ mpirun -np 6 python3 compute_results.py
 
