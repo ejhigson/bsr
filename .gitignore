@@ -1,7 +1,12 @@
+# Directories
+chains/*
+
 # Swap files
 *.sw*
 
-# dyPolyChord output files
+# PolyChord and dyPolyChord output files
+*.ini
+*.cfg
 *.txt
 *.pkl
 *.resume
