@@ -17,4 +17,5 @@ setuptools.setup(name='bsr',
                                    'matplotlib',
                                    'mpi4py',
                                    'Pillow',
-                                   'nestcheck'])
+                                   'nestcheck>=0.1.8',
+                                   'dyPolyChord>=0.0.3'])
