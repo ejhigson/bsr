@@ -2,14 +2,17 @@
  * C++ version of Bayesian sparse reconstruction fitting likelihood
  * ----------------------------------------------------------------
  *
- * C++ code to evaluate the likelihoods used in the paper with PolyChord.
+ * C++ code to evaluate the likelihoods used in the paper with PolyChord. Results
+ * should be identical to the ones using Python, but the C++ version is faster.
  *
- * Results should be identical to the ones using Python, but the C++ version is faster.
+ * For instructions on using this likelihood, see the documentation of compute_results.py.
+ * More details of how PolyChord C++ likelihoods can be compiled can be found in the
+ * PolyChord documentation.
 **/
 # include "CC_ini_likelihood.hpp"
 # include <iostream>  // For printing to terminal
 # include <fstream>  // For loading config file
-# include <assert.h>
+# include <assert.h>  // For assert statements
 # include <vector>  // For reading in data arrays in str_to_valarray
 # include <iterator>  // For reading in data arrays in str_to_valarray
 # include <sstream>  // For reading in data arrays in str_to_valarray
