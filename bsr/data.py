@@ -1,5 +1,10 @@
 #!/usr/bin/env python
-"""Generate data for fitting."""
+"""Generate noisy data for fitting.
+
+Data is passed to a likelihood as a dictionary. This module also contains
+default settings for the parameters of the basis function mixture models used
+to generate results in the paper.
+"""
 import copy
 import numpy as np
 from PIL import Image

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Basis functions for fitting."""
+"""Basis functions for use in Bayesian sparse reconstruction fitting."""
 
 import inspect
 import numpy as np

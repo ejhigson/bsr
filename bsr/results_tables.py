@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Functions for plotting the results."""
+"""Make tables of numerical results using pandas DataFrames."""
 import functools
 import numpy as np
 import pandas as pd
@@ -14,8 +14,8 @@ import bsr.priors
 import bsr.results_utils
 
 
-# Final output inc efficiency gains
-# ---------------------------------
+# Final output (including efficiency gains)
+# -----------------------------------------
 
 
 def get_results_df(results_dict, **kwargs):

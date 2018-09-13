@@ -1,29 +1,7 @@
 #!/usr/bin/env python
-"""
-Python priors for use with PolyChord.
-
-PolyChord v1.14 requires priors to be callables with parameter and return
-types:
-
-Parameters
-----------
-hypercube: 1d numpy array
-    Parameter positions in the prior hypercube.
-
-Returns
--------
-theta: 1d numpy array
-    Corresponding physical parameter coordinates.
-
-Input hypercube values numpy array is mapped to physical space using the
-inverse CDF (cumulative distribution function) of each parameter.
-See the PolyChord papers for more details.
-
-We use classes with the prior defined in the __call__ property, as
-this provides convenient way of storing other information such as
-hyperparameter values. The objects be used in the same way as functions
-due to python's "duck typing" (or alternatively you can just define prior
-functions).
+"""Python priors for use with PolyChord. Includes prior settings for
+the results used in the paper. Most of the functions here build on
+dyPolyChord's priors functionality.
 """
 import copy
 import numpy as np
