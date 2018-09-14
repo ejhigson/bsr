@@ -15,9 +15,6 @@ chains/*
 # Plots
 *.pdf
 
-# demo output
-chains
-
 # Github default python .gitignore
 # --------------------------------
 
