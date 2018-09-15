@@ -352,6 +352,8 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many
     figsize = kwargs.pop('figsize', (2.1 * ncol + 1, 2.4 * nrow))
     colorbar_aspect = kwargs.pop('colorbar_aspect', 40)
     data_color = kwargs.pop('data_color', 'darkred')
+    subplot_height = kwargs.pop('subplot_height', 1.05)
+    subplot_width = kwargs.pop('subplot_width', 1.05)
     kwargs.pop('adfam', None)  # remove as no longer needed
     # ncolorbar = kwargs.pop('ncolorbar', 1)
     # Make figure
@@ -432,7 +434,8 @@ def plot_1d_grid(funcs, samples, weights, **kwargs):  # pylint: disable=too-many
             break
         except RuntimeError:
             pass
-    fig = adjust_spacing(fig, gs)
+    fig = adjust_spacing(fig, gs, subplot_height=subplot_height,
+                         subplot_width=subplot_width)
     return fig
 
 
