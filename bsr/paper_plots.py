@@ -98,7 +98,7 @@ def multi(results_dict, **kwargs):
 
 
 def split(results_dict, **kwargs):
-    """Multi plot with default settings."""
+    """Split plot with default settings."""
     prob_condition = kwargs.pop('prob_condition', lambda x: True)
     meth_condition = kwargs.pop('meth_condition', lambda x: True)
     if kwargs:
