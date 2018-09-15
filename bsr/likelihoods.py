@@ -31,7 +31,7 @@ import bsr.neural_networks as nn
 
 class FittingLikelihood(object):
 
-    """Loglikelihood for fitting a sum of basis functions to the data."""
+    """Loglikelihood for fitting basis functions or neural networks to data."""
 
     def __init__(self, data, function, nfunc, **kwargs):
         """
