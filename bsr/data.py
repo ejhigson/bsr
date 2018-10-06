@@ -156,10 +156,10 @@ def get_data_args(data_func, nfuncs):
                          {'a': 0.35, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0},
                          {'a': 0.55, 'mu': 0.32, 'sigma': 0.14, 'beta': 6.0}]
         elif nfuncs == 4:
-            data_args = [{'a': 0.2, 'mu': 0.3, 'sigma': 0.4, 'beta': 5.0},
-                         {'a': 0.35, 'mu': 0.6, 'sigma': 0.07, 'beta': 2.0},
+            data_args = [{'a': 0.2, 'mu': 0.25, 'sigma': 0.4, 'beta': 5.0},
+                         {'a': 0.35, 'mu': 0.62, 'sigma': 0.07, 'beta': 2.0},
                          {'a': 0.55, 'mu': 0.25, 'sigma': 0.1, 'beta': 6.0},
-                         {'a': 0.9, 'mu': 0.95, 'sigma': 0.07, 'beta': 6.0}]
+                         {'a': 0.9, 'mu': 0.92, 'sigma': 0.1, 'beta': 6.0}]
     elif data_func.__name__ == 'ta_1d':
         # first arg is sorted
         if nfuncs == 1:
