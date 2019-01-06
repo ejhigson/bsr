@@ -5,7 +5,7 @@
 
 This repository contains the code used for making the results and plots in "Bayesian sparse reconstruction: a brute-force approach to astronomical imaging and machine learning" ([Higson et. al, 2018](https://arxiv.org/abs/1809.04598)).
 
-If you have any questions then feel free to email <e.higson@mrao.cam.ac.uk>. However, note that is research code and is not actively maintained.
+If you have any questions then feel free to email <e.higson@mrao.cam.ac.uk>. However, note that this is research code and is not actively maintained.
 
 ### Requirements
 
