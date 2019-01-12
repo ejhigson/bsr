@@ -1,6 +1,6 @@
 # Bayesian sparse reconstruction
 
-[![DOI](http://img.shields.io/badge/DOI-10.1093/mnras/sty3307-darkblue.svg)](https://doi.org/10.1093/mnras/sty3207)
+[![DOI](http://img.shields.io/badge/DOI-10.1093/mnras/sty3307-darkblue.svg)](https://doi.org/10.1093/mnras/sty3307)
 [![arXiv](http://img.shields.io/badge/arXiv-1809.04598-B31B1B.svg)](https://arxiv.org/abs/1809.04598)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ejhigson/dns/blob/master/LICENSE)
 
