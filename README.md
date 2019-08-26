@@ -36,7 +36,7 @@ After nested sampling runs have been generated, results can also be examined in 
 If the code is useful for your research then please cite the Bayesian sparse reconstruction paper. The BibTeX is:
 
 ```latex
-@article{Higson2018bayesian,
+@article{Higson2019bayesian,
 author={Higson, Edward and Handley, Will and Hobson, Michael and Lasenby, Anthony},
 title={Bayesian sparse reconstruction: a brute-force approach to astronomical imaging and machine learning},
 journal={Monthly Notices of the Royal Astronomical Society},
